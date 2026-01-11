@@ -1,133 +1,131 @@
-#!/usr/bin/env python3
-import sys
-import struct
-import os
 import argparse
-
-def read_u16(f):
-    return struct.unpack('<H', f.read(2))[0]
-
-def read_u32(f):
-    return struct.unpack('<I', f.read(4))[0]
+import os
+import struct
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--in', dest='input', required=True)
+    parser = argparse.ArgumentParser(description='Parse summary of NFTR file.')
+    parser.add_argument('--in', dest='input_file', required=True, help='Input NFTR bin file')
     args = parser.parse_args()
+
+    file_path = args.input_file
+    if not os.path.exists(file_path):
+        print(f"Error: File {file_path} not found.")
+        return
+
+    with open(file_path, 'rb') as f:
+        data = f.read()
+
+    file_size = len(data)
+    print(f"解析文件: {file_path}")
+    print(f"文件总大小: {file_size} bytes")
+
+    # Magic check
+    if len(data) < 4:
+        print("文件过小，无法读取 Magic。")
+        return
+        
+    magic = data[0:4].decode('ascii', errors='ignore')
+    print(f"Magic: {magic} ({'匹配' if magic == 'NFTR' else '不匹配'})")
     
-    path = args.input
-    if not os.path.exists(path):
-        print("错误：文件不存在")
-        sys.exit(1)
-        
-    file_len = os.path.getsize(path)
-    print(f"解析摘要: {os.path.basename(path)} (Size: {file_len})")
+    if magic != 'NFTR':
+        print("非 NFTR 文件，停止解析。")
+        return
+
+    # Basic Header (Nitro Header common format)
+    # 0x00: Magic (4)
+    # 0x04: Endian (2) - usually 0xFFFE
+    # 0x06: Version (2)
+    # 0x08: File Size (4)
+    # 0x0C: Header Size (2)
+    # 0x0E: Num Blocks (2)
     
-    with open(path, 'rb') as f:
-        magic = f.read(4)
-        if magic != b'NFTR':
-            print(f"错误: 魔数不匹配 ({magic})")
-            return
-            
-        print("魔数: NFTR (Nitro Font Resource)")
-        
-        # Standard Nitro Header
-        endian = f.read(2) # 0xFFFE
-        version = read_u16(f)
-        total_size = read_u32(f)
-        header_size = read_u16(f)
-        num_blocks = read_u16(f)
-        
-        print(f"版本: {version >> 8}.{version & 0xFF}")
-        print(f"头部声明大小: {total_size} (实际: {file_len})")
-        print(f"Header Size: {header_size}, Blocks: {num_blocks}")
-        
-        # Parse Blocks
-        while f.tell() < file_len:
-            block_magic = f.read(4)
-            if not block_magic: break
-            block_size = read_u32(f)
-            
-            magic_str = block_magic.decode('latin-1', errors='replace')[::-1] # Usually reversed? Or just ASCII. 
-            # Actually NDS blocks are usually like "FINF", "CGLP", "TGLP"
-            # Try decoding normally first.
-            try:
-                magic_str = block_magic.decode('utf-8')
-            except:
-                pass
-                
-            print(f"-- Block: {magic_str} (Size: {block_size})")
-            
-            if magic_str == "FINF":
-                # Font Info
-                sub_header = f.read(1) # Unknown
-                line_height = f.read(1) # Maybe?
-                # Actually structure is complex. Just dumping some bytes.
-                f.seek(f.tell()-2) # Undo
-                
-                # FINF Structure approx:
-                # u8 fontType, u8 height, u16 unknown
-                # u8 unknown, u8 defaultWidth, u8 defaultLength, u8 encoding
-                # u32 offsetGLPH, u32 offsetWIDTH, u32 offsetMAP
-                
-                font_type = ord(f.read(1))
-                height = ord(f.read(1))
-                f.read(2) # skip
-                default_width = ord(f.read(1))
-                default_length = ord(f.read(1)) # or vice versa
-                f.read(1)
-                encoding = ord(f.read(1))
-                
-                print(f"   Font Height: {height}px")
-                print(f"   Default Width: {default_width}px")
-                print(f"   Encoding: {encoding}")
+    if len(data) < 16:
+        print("头部数据不足 16 字节。")
+        return
 
-            elif magic_str == "CGLP":
-                # Char Glyph
-                # u8 cellWidth, u8 cellHeight
-                # u16 cellSize, u16 qBitDepth, u8 rotation, u8 dummy
-                cell_w = ord(f.read(1))
-                cell_h = ord(f.read(1))
-                print(f"   Cell Size: {cell_w}x{cell_h}")
-                
-            elif magic_str == "TGLP":
-                 # Texture Glyph (Pre-rendered)
-                 cell_w = ord(f.read(1))
-                 cell_h = ord(f.read(1))
-                 print(f"   Cell Size: {cell_w}x{cell_h}")
+    try:
+        endian = struct.unpack('<H', data[4:6])[0]
+        version = struct.unpack('<H', data[6:8])[0]
+        header_size = struct.unpack('<I', data[8:12])[0] # Careful, spec says u32 size at 0x8?
+        # Actually standard NDS header:
+        # 0x04: u16 endian
+        # 0x06: u16 version
+        # 0x08: u32 file_size
+        # 0x0C: u16 header_size
+        # 0x0E: u16 num_blocks
+        
+        reported_size = struct.unpack('<I', data[8:12])[0]
+        header_len = struct.unpack('<H', data[12:14])[0]
+        num_blocks = struct.unpack('<H', data[14:16])[0]
+        
+        print(f"Endian: 0x{endian:04X}")
+        print(f"Version: 0x{version:04X}")
+        print(f"Header Reported Size: {reported_size}")
+        print(f"Header Length: {header_len}")
+        print(f"Number of Blocks: {num_blocks}")
 
-            elif magic_str == "CMAP":
-                # Char Map
-                first_char = read_u16(f)
-                last_char = read_u16(f)
-                map_type = read_u32(f)
-                print(f"   Map Range: 0x{first_char:04X} - 0x{last_char:04X}")
-                print(f"   Map Type: {map_type}")
+        # Try to find FINF (Font Info) block
+        # Blocks usually follow the header.
+        current_offset = header_len
+        
+        # Limit search loop to prevent hang
+        for _ in range(num_blocks):
+            if current_offset + 8 > file_size:
+                break
             
-            # Skip rest of block
-            # Current pos is block start + 8 + read_bytes
-            # We want to go to block start + block_size
-            # Wait, block_size usually includes header (8 bytes).
-            # So next block is at block_start + block_size
+            block_magic = data[current_offset:current_offset+4].decode('ascii', errors='ignore')
+            block_size = struct.unpack('<I', data[current_offset+4:current_offset+8])[0]
             
-            # Re-calculate correct seek
-            # Current f.tell() is messy.
-            # Better approach: store block start before reading type
-            # But we already read 8 bytes.
-            # So next block is at (current_pos - 8 - bytes_read_in_block) + block_size
+            print(f"-- Block Found: {block_magic} at {current_offset}, size {block_size}")
             
-            # Easier: Just track absolute offsets
-            # We are not robustly tracking bytes read in block.
-            # So let's rely on the fact that blocks are sequential and we know sizes.
-            # But we need to account for what we read inside the 'if'.
-            pass
+            if block_magic == 'FINF':
+                # Parse FINF summary
+                # FINF structure (approx):
+                # 0x00: Magic
+                # 0x04: Size
+                # 0x08: Unknown/Encoding?
+                # 0x0C: Height?
+                # ...
+                # Let's try to extract some bytes that might be meaningful
+                if block_size >= 0x20:
+                    finf_data = data[current_offset:current_offset+block_size]
+                    # Common fields in FINF:
+                    # +0x08: u8 fontType?
+                    # +0x09: u8 height?
+                    # +0x0A: u16 unknown
+                    # +0x0C: u8 defaultWidth?
+                    # +0x0D: u8 defaultHeight?
+                    
+                    # Just dumping some raw values for analysis
+                    try:
+                        u8_vals = struct.unpack('BBBBBB', finf_data[8:14])
+                        print(f"   FINF Raw Bytes [0x8:0xE]: {u8_vals}")
+                        print(f"   Possible Height: {u8_vals[1]}")
+                    except:
+                        print("   Unable to parse FINF details.")
             
-            # Conservative skip:
-            # Since we can't easily track exactly how many bytes we read inside the if/elif,
-            # we should have saved the start position.
-            # Refactoring slightly for robustness.
-            
-    print("解析摘要结束。")
+            elif block_magic == 'CGLP':
+                # Character Glyph (Bitmaps)
+                # Usually contains width, height, bpp
+                if block_size >= 16:
+                    cglp_data = data[current_offset:current_offset+block_size]
+                    try:
+                        # +0x08: u8 cellWidth
+                        # +0x09: u8 cellHeight
+                        # +0x0A: u16 cellLen?
+                        cw, ch = struct.unpack('BB', cglp_data[8:10])
+                        print(f"   CGLP Cell Size: {cw}x{ch}")
+                    except:
+                        pass
+                        
+            elif block_magic == 'CMAP':
+                # Character Map
+                print("   Found Character Map info.")
 
-if __name__ == '__main__':
+            current_offset += block_size
+
+    except Exception as e:
+        print(f"解析过程中遇到错误: {e}")
+
+if __name__ == "__main__":
     main()
