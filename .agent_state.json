@@ -1,4 +1,10 @@
 {
-  "policy_installed": true,
-  "ts": "2024-05-22T10:00:00Z"
+  "rom_poc_done": true,
+  "rom_detected": "roms/MM2R.nds",
+  "rom_file_count": 9,
+  "pack_data_pak_done": true,
+  "pack_data_pak_size": 448165,
+  "pack_unpack_mode": "signature_scan_only",
+  "last_step": "B2_unpack_pack_data_pak",
+  "ts": "2024-05-22T10:15:00Z"
 }
