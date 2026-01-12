@@ -1,0 +1,17 @@
+{
+  "b4_done": true,
+  "b4_name_count": 13,
+  "b4_name_end": 184,
+  "b4_entry_mode": "size_offset",
+  "b4_unpacked_count": 15,
+  "b5_render_done": true,
+  "b5_png_path": "contentpacks/poc/render_poc/screen.png",
+  "b6_client_map_debug": true,
+  "b6_backup_zip": "backups/b6_client_map_debug_20260111_120848.zip",
+  "w1_world_ws_sync": true,
+  "w1_backup_zip": "backups/w1_world_ws_sync_20260111_121419.zip",
+  "w1_netfix": true,
+  "w1_netfix_zip": "backups/w1_netfix_idx_url_20240523_110000.zip", 
+  "last_step": "W1_netfix_idx_port_url",
+  "ts": "2024-05-23T11:00:00Z"
+}

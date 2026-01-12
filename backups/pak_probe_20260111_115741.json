@@ -1,0 +1,122 @@
+{
+  "file_size": 448165,
+  "name_count": 13,
+  "name_end_offset": 184,
+  "table_start_guess": 288,
+  "entry_mode_guess": "offset_size",
+  "entries": [
+    {
+      "index": 0,
+      "offset": 416,
+      "size": 0,
+      "mode": "size_offset",
+      "magic": "UNK"
+    },
+    {
+      "index": 1,
+      "offset": 416,
+      "size": 4008,
+      "mode": "size_offset",
+      "magic": "0d000000"
+    },
+    {
+      "index": 2,
+      "offset": 4424,
+      "size": 16432,
+      "mode": "size_offset",
+      "magic": "RGCN"
+    },
+    {
+      "index": 3,
+      "offset": 20856,
+      "size": 552,
+      "mode": "size_offset",
+      "magic": "RLCN"
+    },
+    {
+      "index": 4,
+      "offset": 21408,
+      "size": 196048,
+      "mode": "size_offset",
+      "magic": "RTFN"
+    },
+    {
+      "index": 5,
+      "offset": 217456,
+      "size": 552,
+      "mode": "size_offset",
+      "magic": "RLCN"
+    },
+    {
+      "index": 6,
+      "offset": 218008,
+      "size": 180,
+      "mode": "size_offset",
+      "magic": "RCSN"
+    },
+    {
+      "index": 7,
+      "offset": 218188,
+      "size": 552,
+      "mode": "size_offset",
+      "magic": "RLCN"
+    },
+    {
+      "index": 8,
+      "offset": 218740,
+      "size": 23040,
+      "mode": "size_offset",
+      "magic": "00300130"
+    },
+    {
+      "index": 9,
+      "offset": 241780,
+      "size": 1472,
+      "mode": "size_offset",
+      "magic": "00000b00"
+    },
+    {
+      "index": 10,
+      "offset": 243252,
+      "size": 142752,
+      "mode": "size_offset",
+      "magic": "00000000"
+    },
+    {
+      "index": 11,
+      "offset": 386004,
+      "size": 52940,
+      "mode": "size_offset",
+      "magic": "00000100"
+    },
+    {
+      "index": 12,
+      "offset": 438944,
+      "size": 513,
+      "mode": "size_offset",
+      "magic": "Path"
+    },
+    {
+      "index": 13,
+      "offset": 439457,
+      "size": 1072,
+      "mode": "size_offset",
+      "magic": "RGCN"
+    },
+    {
+      "index": 14,
+      "offset": 440529,
+      "size": 552,
+      "mode": "size_offset",
+      "magic": "RLCN"
+    },
+    {
+      "index": 15,
+      "offset": 441081,
+      "size": 7084,
+      "mode": "size_offset",
+      "magic": "RTFN"
+    }
+  ],
+  "note": "Manually corrected table start & swapped (Size, Offset)"
+}

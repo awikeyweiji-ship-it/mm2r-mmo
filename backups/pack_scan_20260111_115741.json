@@ -1,0 +1,42 @@
+[
+  {
+    "magic": "NFTR",
+    "offset": 52
+  },
+  {
+    "magic": "NSCR",
+    "offset": 84
+  },
+  {
+    "magic": "NFTR",
+    "offset": 179
+  },
+  {
+    "magic": "RGCN",
+    "offset": 4424
+  },
+  {
+    "magic": "RLCN",
+    "offset": 20856
+  },
+  {
+    "magic": "RLCN",
+    "offset": 217456
+  },
+  {
+    "magic": "RCSN",
+    "offset": 218008
+  },
+  {
+    "magic": "RLCN",
+    "offset": 218188
+  },
+  {
+    "magic": "RGCN",
+    "offset": 439457
+  },
+  {
+    "magic": "RLCN",
+    "offset": 440529
+  }
+]

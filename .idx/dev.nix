@@ -1,39 +1,53 @@
-# To learn more about how to use Nix to configure your environment
-# see: https://firebase.google.com/docs/studio/customize-workspace
-{ pkgs, ... }: {
-  # Which nixpkgs channel to use.
-  channel = "stable-24.05"; # or "unstable"
-  # Use https://search.nixos.org/packages to find packages
-  packages = [
-    pkgs.jdk21
-    pkgs.unzip
-  ];
-  # Sets environment variables in the workspace
-  env = {};
-  idx = {
-    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
-    extensions = [
-      "Dart-Code.flutter"
-      "Dart-Code.dart-code"
-    ];
-    workspace = {
-      # Runs when a workspace is first created with this `dev.nix` file
-      onCreate = { };
-      # To run something each time the workspace is (re)started, use the `onStart` hook
-    };
-    # Enable previews and customize configuration
-    previews = {
-      enable = true;
-      previews = {
-        web = {
-          command = ["flutter" "run" "--machine" "-d" "web-server" "--web-hostname" "0.0.0.0" "--web-port" "$PORT"];
-          manager = "flutter";
-        };
-        android = {
-          command = ["flutter" "run" "--machine" "-d" "android" "-d" "localhost:5555"];
-          manager = "flutter";
-        };
-      };
-    };
-  };
+{
+  # See https://www.jetpack.io/devbox/docs/configuration/ for reference.
+  pkgs: [
+    pkgs.flutter.withPackages (ps: with ps; [ 
+      # Add your flutter packages here
+    ])
+  ],
+  # Installs these Nix packages into the environment.
+  # pkgs: [
+  #   pkgs.go
+  #   pkgs.python311
+  #   pkgs.python311Packages.pip
+  # ],
+  # Installs these VSCode extensions.
+  # extensions: [
+  #   "vscodevim.vim"
+  #   "esbenp.prettier-vscode"
+  # ],
+  # Runs this command when the environment is created.
+  init_hook: [
+    "echo 'Welcome to Firebase Genkit!\n'"
+    # Add your initialization commands here.
+  ],
+  # Runs this command when the user connects to the environment.
+  on_create: [],
+  # Runs this command when the user opens the editor.
+  on_connect: [],
+  dev_platforms: ["x86_64-linux"],
+  idx: {
+    previews: {
+      enable: true
+      previews: [
+        {
+          id: "backend"
+          name: "Backend"
+          port: 8080
+          command: ["(cd server && npm start)"] # Corrected command
+        }
+        {
+          id: "web"
+          name: "Web"
+          port: 8675
+          command: ["npm", "run", "dev"]
+        }
+      ]
+    }
+    extensions: [
+      "dart-code.dart-code"
+      "dart-code.flutter"
+      "ms-vscode.vscode-typescript-next"
+    ]
+  }
 }
