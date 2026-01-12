@@ -10,6 +10,7 @@ if (!port) {
 }
 const BACKEND_URL = 'http://127.0.0.1:8080';
 const WS_BACKEND_URL = 'ws://127.0.0.1:8080';
+const RENDERER_URL = process.env.RENDERER_URL; // For Dev mode (flutter run)
 
 // Proxy API requests
 app.use('/api', createProxyMiddleware({
@@ -36,18 +37,30 @@ const wsProxy = createProxyMiddleware({
 });
 app.use('/ws', wsProxy);
 
-const buildPath = path.join(__dirname, '../build/web');
-app.use(express.static(buildPath));
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
+if (RENDERER_URL) {
+  console.log(`DEV MODE: Proxying frontend to ${RENDERER_URL}`);
+  // In dev mode, proxy everything else to the flutter dev server
+  app.use('/', createProxyMiddleware({
+    target: RENDERER_URL,
+    changeOrigin: true,
+    ws: true, // Support flutter's own WS if needed
+    filter: (pathname, req) => {
+      return !pathname.startsWith('/api') && !pathname.startsWith('/ws');
+    }
+  }));
+} else {
+  console.log(`RELEASE MODE: Serving static files`);
+  const buildPath = path.join(__dirname, '../build/web');
+  app.use(express.static(buildPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
 
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Proxy server listening on 0.0.0.0:${port}`);
   console.log(`Proxying /api to ${BACKEND_URL}`);
   console.log(`Proxying /ws to ${WS_BACKEND_URL}/ws`);
-  console.log(`Serving static files from ${buildPath}`);
 });
 
 // Also wire up the websocket proxy to the server

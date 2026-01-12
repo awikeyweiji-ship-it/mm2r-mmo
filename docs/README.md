@@ -1,45 +1,46 @@
-# Docs
+# 项目文档与开发指南
 
 工程图、协议、路线图会放在这里。
 
+## Web 预览模式切换 (WEB_MODE)
+
+为了平衡“实时热重载”和“发布版稳定性”，本项目在 `.idx/dev.nix` 中通过 `WEB_MODE` 变量支持两种模式。
+
+### 1. 开发模式 (dev) - **默认**
+- **行为**：运行 `flutter run -d web-server`。
+- **优点**：支持 **Hot Reload / Hot Restart**。修改代码后，点击 IDE 的热重载按钮或保存文件，预览画面会实时更新。
+- **缺点**：性能稍弱（开发版编译），首次加载略慢。
+- **如何使用**：确保 `.idx/dev.nix` 中 `env.WEB_MODE = "dev";`。
+
+### 2. 发布模式 (release)
+- **行为**：执行 `flutter build web --release` 并通过 Node.js 代理服务器提供静态服务。
+- **优点**：性能最佳，模拟真实生产环境，适合最终演示。
+- **缺点**：**不支持热更新**。任何代码修改都需要等待 `flutter build` 重新完成（约 1-2 分钟）。
+- **如何使用**：
+    1. 修改 `.idx/dev.nix` 中的 `env.WEB_MODE = "release";`。
+    2. 执行 Command Palette -> **"Project IDX: Hard Restart"** 以重新启动预览服务器。
+
+---
+
 ## 如何在 IDX 里点开可视化预览 (Recommended)
 
-本项目已接入 Project IDX 的 Previews 功能。你不需要手动在终端跑 `flutter run`，IDX 会自动为你准备好预览入口。
+本项目已接入 Project IDX 的 Previews 功能。
 
-**注意：如果这是你第一次打开或刚修改完配置，请执行 Command Palette -> "Project IDX: Hard Restart" 以加载预览配置。**
+**注意：如果预览没有自动刷新，请执行 Command Palette -> "Project IDX: Hard Restart"。**
 
 ### 1. 打开 Previews 面板
 - 在 IDE 界面顶部 Tab 栏寻找 **"Previews"** 标签。
 - 或者点击 IDE 右侧边栏的 **"Previews"** 图标。
 
 ### 2. 选择预览实例
-在 Previews 面板中，你会看到以下选项（标签名可能为 "Web", "Android", "Backend"）：
-- **web (Flutter Web)**: 真正的游戏画面预览。IDX 会自动编译并展示 Flutter Web 界面。
-- **backend (8080)**: 后端服务的健康检查预览。
-- **android**: Android 模拟器预览（如环境支持）。
-
-### 3. 连接后端
-- **自动连接**：默认情况下，App 会尝试连接到当前的后端。
-- **手动修正**：如果连接失败，请参考下方“后端连接说明”，将 backend 预览提供的 **Forwarded URL** 填入 App 设置中。
+- **web (Flutter Web)**: 真正的游戏画面预览。
+- **backend (8080)**: 后端 Node.js 服务。
 
 ---
 
-## 开发环境后端连接说明（IDX 网络修复版）
+## 开发环境网络说明
 
-在 Firebase Studio (IDX) 环境下开发时，前端 Flutter 应用（运行在 web 或 emulator）和后端 Node.js 服务（运行在 workspace 容器）不在同一个网络命名空间。**不能直接使用 localhost。**
-
-**如何让前端连接到后端：**
-
-1. **启动后端**：确保后端服务已启动。在 IDX 中，`backend` 预览会自动保持运行。
-2. **获取 URL**：在 IDX Previews 面板或底部 "Ports" 中找到 8080 端口。
-   - 复制其 **Forwarded URL**（例如 `https://8080-idx-your-project-url.cluster.idx.dev`）。
-3. **配置 App**：
-   - 在 **flutter_web** 预览中，点击 **设置**。
-   - 将 **后端地址** 修改为上面获取到的 URL。
-   - 点击 **保存**。
-4. **验证连接**：
-   - 回到 **进入世界** 页面，点击 **连接测试 /health**，确保显示 **SUCCESS**。
-
-# myapp
-
-A new Flutter project.
+在 IDX 中，我们使用了 **Tools Proxy (tools/web_dev_proxy.js)** 来处理同源问题：
+- 所有指向 `/api/*` 的请求会自动转发到后端的 8080 端口。
+- 所有指向 `/ws` 的 WebSocket 请求会自动转发到后端的 8080 端口。
+- 这样 App 内部可以使用相对路径或同源策略，无需手动填写复杂的 Forwarded URL。

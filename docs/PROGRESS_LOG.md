@@ -1,5 +1,16 @@
 # Progress Log
 
+## S5 Web Mode Switch (Hot Reload Support)
+- **Feature**: Implemented `WEB_MODE` switch in `.idx/dev.nix`.
+- **Infrastructure**: Updated `tools/web_dev_proxy.js` to support dual-mode (Static vs Renderer Proxy).
+- **Docs**: Added mode explanation and Hot Reload instructions to `docs/README.md`.
+- **Optimization**: Default mode is now `dev` to enable real-time updates for developers.
+- **Backup**: Created `backups/web_mode_switch_init.tar.gz`.
+
+**Status**: ✅ S5 Complete. Hot reload is now active by default.
+
+---
+
 ## S4 Quest Pickup & NPC
 - **Server**: Added `objects` (pickups, npcs) to Room state.
 - **Server**: Implemented authoritative collision detection for pickups.
