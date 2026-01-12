@@ -38,7 +38,7 @@
           command = [
             "bash"
             "-lc"
-            "flutter pub get && flutter build web --release --pwa-strategy=none --dart-define=BUILD_ID=$(date +%Y%m%d_%H%M%S) && cd tools && npm install && node web_dev_proxy.js"
+            "export PORT=\"$PORT\"; echo \"IDX PORT=$PORT, exported PORT=$PORT\"; flutter pub get && flutter build web --release --pwa-strategy=none --dart-define=BUILD_ID=$(date +%Y%m%d_%H%M%S) && cd tools && npm install && node web_dev_proxy.js"
           ];
           manager = "web";
         };
