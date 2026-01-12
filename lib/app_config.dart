@@ -20,37 +20,78 @@ class AppConfig extends ChangeNotifier {
   final _gameStateController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get gameStateStream => _gameStateController.stream;
 
-  Future<void> discoverBackend() async {
-    final Uri currentUri = Uri.base;
-    String detectedBaseUrl;
-
-    if (currentUri.host.endsWith('.app.goog') || currentUri.host.endsWith('.cloudworkstations.dev')) {
-      // For Cloud Workstations / IDX previews
-      detectedBaseUrl = '${currentUri.scheme}://${currentUri.host}';
-      if (currentUri.hasPort && currentUri.port != 80 && currentUri.port != 443) {
-         detectedBaseUrl += ':${currentUri.port}';
-      }
-    } else {
-      detectedBaseUrl = 'http://localhost:8080';
+  // Robust derivation logic for backend URL
+  String? deriveBackendBaseUrlFromWebOrigin(Uri origin) {
+    if (!origin.host.contains('cloudworkstations.dev') && 
+        !origin.host.contains('app.goog') && 
+        !origin.host.endsWith('gitpod.io')) {
+      return null; // Not in a recognized preview environment
     }
     
-    // Allow overriding via query param
+    String derivedHost = origin.host;
+    
+    // Case 1: Prefix based (e.g. 9000-abc... -> 8080-abc...)
+    final prefixRegex = RegExp(r'^(\d+)-(.*)$');
+    final prefixMatch = prefixRegex.firstMatch(derivedHost);
+    
+    if (prefixMatch != null) {
+      // It starts with a port-like prefix
+      derivedHost = '8080-${prefixMatch.group(2)}';
+    } 
+    // Case 2: Infix based (e.g. abc-9000.... -> abc-8080....)
+    else if (derivedHost.contains('-9000.')) {
+        derivedHost = derivedHost.replaceFirst('-9000.', '-8080.');
+    }
+    // Case 3: Already correct port?
+    else if (derivedHost.startsWith('8080-') || derivedHost.contains('-8080.')) {
+        // Keep it as is
+    }
+    // Case 4: Fallback, try to replace any 9000 with 8080 if present
+    else if (derivedHost.contains('9000')) {
+         derivedHost = derivedHost.replaceAll('9000', '8080');
+    }
+    
+    return '${origin.scheme}://$derivedHost';
+  }
+
+  Future<void> discoverBackend() async {
+    final Uri currentUri = Uri.base;
+    String? detectedBaseUrl;
+
+    // 1. Try to derive 8080 backend from current web origin (9000)
+    detectedBaseUrl = deriveBackendBaseUrlFromWebOrigin(currentUri);
+
+    // 2. Fallback for localhost or unknown env
+    if (detectedBaseUrl == null) {
+        if (currentUri.host == 'localhost' || currentUri.host == '127.0.0.1') {
+            detectedBaseUrl = 'http://localhost:8080';
+        } else {
+            // Fallback to origin if we can't derive, but this is likely wrong for static web hosting
+            detectedBaseUrl = '${currentUri.scheme}://${currentUri.host}';
+            if (currentUri.hasPort && currentUri.port != 80 && currentUri.port != 443) {
+                 detectedBaseUrl += ':${currentUri.port}';
+            }
+        }
+    }
+    
+    // 3. Allow override
     if (currentUri.queryParameters.containsKey('backend')) {
         detectedBaseUrl = currentUri.queryParameters['backend']!;
     }
 
     baseUrl = detectedBaseUrl;
-    notifyListeners();
+    notifyListeners(); // Update UI with candidate URL
 
+    // 4. Verify connectivity
     await _checkHealth();
+    
+    // 5. Connect WS only if health check passed or we are brave
     await _connectWs();
   }
 
   String deriveWsUrl(String httpBaseUrl) {
-      final Uri currentUri = Uri.base;
       String wsScheme = 'ws';
-      // If the page is loaded via HTTPS, we MUST use WSS.
-      if (currentUri.scheme == 'https' || httpBaseUrl.startsWith('https')) {
+      if (httpBaseUrl.startsWith('https')) {
           wsScheme = 'wss';
       }
 
@@ -68,6 +109,9 @@ class AppConfig extends ChangeNotifier {
   Future<void> _checkHealth() async {
     if (baseUrl == null) return;
     lastHealthUrl = '$baseUrl/health';
+    healthStatus = 'Checking...';
+    notifyListeners();
+    
     try {
       final response = await http.get(Uri.parse(lastHealthUrl));
       if (response.statusCode == 200) {
@@ -77,6 +121,7 @@ class AppConfig extends ChangeNotifier {
       }
     } catch (e) {
       healthStatus = 'Err: ${e.toString()}';
+      print("Health check failed for $lastHealthUrl: $e");
     }
     notifyListeners();
   }
@@ -146,7 +191,7 @@ class AppConfig extends ChangeNotifier {
   }
   
   void retryConnection() {
-      _connectWs();
+      discoverBackend(); // Re-run discovery to be safe, then connect
   }
 
   @override

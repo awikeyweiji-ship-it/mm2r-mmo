@@ -1,0 +1,80 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+class AppConfig extends ChangeNotifier {
+  String? baseUrl;
+  String healthStatus = 'Unknown';
+  String wsStatus = 'Disconnected';
+  String lastHealthUrl = '';
+  String lastWsUrl = '';
+  String lastWsError = '';
+  String browserOrigin = Uri.base.origin;
+  
+  WebSocketChannel? ws;
+  String? playerId;
+  int playerCount = 0;
+  
+  final _gameStateController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get gameStateStream => _gameStateController.stream;
+
+  Future<void> discoverBackend() async {
+    final Uri currentUri = Uri.base;
+    String detectedBaseUrl;
+
+    if (currentUri.host.endsWith('.app.goog') || currentUri.host.endsWith('.cloudworkstations.dev')) {
+      // For Cloud Workstations / IDX previews
+      detectedBaseUrl = '${currentUri.scheme}://${currentUri.host}';
+      if (currentUri.hasPort && currentUri.port != 80 && currentUri.port != 443) {
+         detectedBaseUrl += ':${currentUri.port}';
+      }
+    } else {
+      detectedBaseUrl = 'http://localhost:8080';
+    }
+    
+    // Allow overriding via query param
+    if (currentUri.queryParameters.containsKey('backend')) {
+        detectedBaseUrl = currentUri.queryParameters['backend']!;
+    }
+
+    baseUrl = detectedBaseUrl;
+    notifyListeners();
+
+    await _checkHealth();
+    await _connectWs();
+  }
+
+  String deriveWsUrl(String httpBaseUrl) {
+      final Uri currentUri = Uri.base;
+      String wsScheme = 'ws';
+      // If the page is loaded via HTTPS, we MUST use WSS.
+      if (currentUri.scheme == 'https' || httpBaseUrl.startsWith('https')) {
+          wsScheme = 'wss';
+      }
+
+      Uri parsedHttp = Uri.parse(httpBaseUrl);
+      
+      // Reconstruct with correct scheme and path
+      Uri wsUri = parsedHttp.replace(
+          scheme: wsScheme,
+          path: '/ws'
+      );
+      
+      return wsUri.toString();
+  }
+
+  Future<void> _checkHealth() async {
+    if (baseUrl == null) return;
+    lastHealthUrl = '$baseUrl/health';
+    try {
+      final response = await http.get(Uri.parse(lastHealthUrl));
+      if (response.statusCode == 200) {
+        healthStatus = 'OK';
+      } else {
+        healthStatus = 'Fail: ${response.statusCode}';
+      }
+    } catch (e) {
+      healthStatus = 'Err: ${e.toString()}';
+    }

@@ -91,3 +91,8 @@
 - Updated app_config.dart to force WSS on HTTPS pages.
 - Verified local connectivity with tools/wss_probe_preview.js.
 
+- Backend URL derivation fixed (9000 -> 8080) for Cloud Workstations/IDX
+- Health check force-directed to backend 8080
+- WS connection force-directed to backend 8080 wss://
+- Web Preview Command Updated: Force Rebuild + Timestamp + No-Cache + No-PWA
+- UI now displays BUILD_ID for version verification

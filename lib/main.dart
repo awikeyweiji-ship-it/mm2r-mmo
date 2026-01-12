@@ -83,6 +83,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
   final Point<double> _portalDest = const Point(100.0, 100.0);
   String _statusMsg = "MMO Started. Move to the Portal (Yellow)!";
   
+  // BUILD_ID from dart-define
+  static const String buildId = String.fromEnvironment('BUILD_ID', defaultValue: 'DEV_BUILD');
+  
   @override
   void initState() {
     super.initState();
@@ -280,12 +283,24 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                                     Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                            Expanded(child: Text('BaseURL: ${config.baseUrl ?? "Detecting..."}', style: const TextStyle(color: Colors.white70, fontSize: 10), overflow: TextOverflow.ellipsis)),
-                                            Text('Health: ${config.healthStatus}', style: TextStyle(color: config.healthStatus == 'OK' ? Colors.greenAccent : Colors.redAccent, fontSize: 10)),
+                                            Text('BUILD: $buildId', style: const TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                            Text('WebOrigin: ${config.browserOrigin}', style: const TextStyle(color: Colors.white38, fontSize: 9)),
+                                        ]
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                            Expanded(
+                                                child: Text('Backend: ${config.baseUrl ?? "Detecting..."}', 
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11), 
+                                                overflow: TextOverflow.ellipsis)
+                                            ),
+                                            Text('Health: ${config.healthStatus}', style: TextStyle(color: config.healthStatus == 'OK' ? Colors.greenAccent : Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                                         ]
                                     ),
                                     const SizedBox(height: 2),
-                                    Text('WS URL: ${config.lastWsUrl}', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                                    Text('WS URL: ${config.lastWsUrl}', style: const TextStyle(color: Colors.white70, fontSize: 9)),
                                     const SizedBox(height: 4),
                                     Row(children: [
                                         Icon(Icons.circle, size: 8, color: statusColor),
