@@ -12,7 +12,7 @@
     BACKEND_PORT = "8080";
     JAVA_HOME = "${pkgs.jdk17}/lib/openjdk";
     # WEB_MODE: dev (flutter run, supports hot reload) OR release (flutter build, stable)
-    WEB_MODE = "dev";
+    WEB_MODE = "release";
   };
 
   idx = {

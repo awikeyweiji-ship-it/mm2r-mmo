@@ -50,3 +50,7 @@
 - **Backup**: `backups/r1_2a_warp_extract_final.tar.gz`.
 
 **Status**: ✅ R1.2A Complete. Simulated warp extraction flow established.
+## R1.2A Client Switch Fix 1768227709
+- Fixed dev proxy crash by fallback PORT to 9000 if not set.
+- Client now attempts to load assets/poc/world_objects_generated.json first.
+- Debug UI shows LoadedObjectsSource.

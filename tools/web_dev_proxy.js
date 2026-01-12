@@ -3,11 +3,10 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('path');
 
 const app = express();
-const port = Number(process.env.PORT || process.env.SPORT || process.env.PREVIEW_PORT || 0);
-if (!port) {
-  console.error("FATAL: PORT not set");
-  process.exit(2);
-}
+// FIX: Fallback if PORT is not set, instead of crashing.
+// Dev mode often starts without PORT. 
+const port = Number(process.env.PORT || process.env.SPORT || process.env.PREVIEW_PORT || 9000);
+
 const BACKEND_URL = 'http://127.0.0.1:8080';
 const WS_BACKEND_URL = 'ws://127.0.0.1:8080';
 const RENDERER_URL = process.env.RENDERER_URL; // For Dev mode (flutter run)
@@ -59,6 +58,9 @@ if (RENDERER_URL) {
 
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Proxy server listening on 0.0.0.0:${port}`);
+  if (!process.env.PORT) {
+      console.warn("WARNING: PORT was not set, defaulted to 9000. Preview might not map correctly if not expected.");
+  }
   console.log(`Proxying /api to ${BACKEND_URL}`);
   console.log(`Proxying /ws to ${WS_BACKEND_URL}/ws`);
 });

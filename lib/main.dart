@@ -100,10 +100,12 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
   
   // S4 Quest State & Data Driven Objects
   final Map<String, WorldObject> _worldObjects = {};
+  String _loadedObjectsSource = 'none'; // 'generated', 'default' or 'none'
+
   int _inventoryCount = 0;
   int _questsCompleted = 0;
   bool _showNpcDialog = false;
-  String _npcDialogText = "Hello!";
+  final String _npcDialogText = "Hello!";
   
   String _statusMsg = "Welcome! Find the Green Pickup to start quest.";
   
@@ -130,10 +132,26 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
 
   Future<void> _loadWorldObjects() async {
       try {
-          final String response = await rootBundle.loadString('assets/poc/world_objects.json');
+          // Attempt to load generated objects first
+          String response;
+          String source = 'generated';
+          try {
+             response = await rootBundle.loadString('assets/poc/world_objects_generated.json');
+             // Validate it has portals (basic check)
+             final check = json.decode(response);
+             if (check['portals'] == null || (check['portals'] as List).isEmpty) {
+                 throw Exception("Generated file empty or missing portals");
+             }
+          } catch (e) {
+             print("Generated objects not found or invalid ($e), falling back to default.");
+             response = await rootBundle.loadString('assets/poc/world_objects.json');
+             source = 'default';
+          }
+
           final data = json.decode(response);
           
           setState(() {
+              _loadedObjectsSource = source;
               _worldObjects.clear();
               // Portals
               if (data['portals'] != null) {
@@ -173,10 +191,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                   }
               }
           });
-          print("Loaded ${_worldObjects.length} objects from JSON asset.");
+          print("Loaded ${_worldObjects.length} objects from $source JSON asset.");
       } catch (e) {
-          print("Error loading world_objects.json: $e");
-          // Fallback if needed, but we expect asset to be there
+          print("Error loading world objects: $e");
       }
   }
 
@@ -526,6 +543,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                                     const Divider(height: 8, color: Colors.white24),
                                     Text('Room: poc_world\nMe: ${config.playerId?.substring(0, min(8, config.playerId?.length ?? 0)) ?? "?"}\nPlayers: ${config.playerCount}\nObjs: ${_worldObjects.length}', 
                                         style: const TextStyle(color: Colors.white, fontSize: 11)
+                                    ),
+                                    Text('Objects Source: $_loadedObjectsSource', 
+                                        style: TextStyle(color: _loadedObjectsSource == 'generated' ? Colors.greenAccent : Colors.orangeAccent, fontSize: 11)
                                     ),
                                 ],
                             ),
