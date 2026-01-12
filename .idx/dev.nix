@@ -22,9 +22,10 @@
       onCreate = {
         npm-install = "cd server && npm install";
         flutter-pub-get = "flutter pub get";
+        flutter-config = "flutter config --no-analytics";
       };
       onStart = {
-        # Backend runs in preview now
+        flutter-config = "flutter config --no-analytics";
       };
     };
 
@@ -33,15 +34,9 @@
       previews = {
         web = {
           command = [
-            "flutter"
-            "run"
-            "--machine"
-            "-d"
-            "web-server"
-            "--web-hostname"
-            "0.0.0.0"
-            "--web-port"
-            "$PORT"
+            "bash"
+            "-lc"
+            "flutter pub get && flutter config --no-analytics && flutter run -d web-server --web-hostname 0.0.0.0 --web-port $PORT"
           ];
           manager = "flutter";
         };

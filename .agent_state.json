@@ -1,1 +1,4 @@
-{"idx_previews_setup": true, "android_preview_run": true, "idx_previews_web": true}
+{
+  "preview_port_fix": true,
+  "last_updated": "2026-01-12T04:00:00Z"
+}

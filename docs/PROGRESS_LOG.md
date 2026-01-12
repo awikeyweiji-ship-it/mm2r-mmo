@@ -69,3 +69,4 @@
 - [2026-01-12 03:29] Setup IDX Previews for Flutter Web and Backend. Updated docs/README.md.
 - [2026-01-12 03:30] Android Emulator check skipped (SDK missing). Recommended Web Preview.
 - [2026-01-12 03:36] IDX Previews configured (Web, Android, Backend). Added instructions to README.
+- [2026-01-12 04:00] Web Preview Port Fix: dev.nix 强制使用 $PORT 和 0.0.0.0，修复 Starting server 卡死。
