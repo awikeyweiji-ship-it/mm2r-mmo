@@ -84,3 +84,10 @@
 - Verified local connection (ws://localhost:8080/ws) -> SUCCESS.
 - Ready for Preview environment verification (UI will show derived wss://.../ws).
 
+## S3.1 Web WS Real Fix Mon Jan 12 07:35:17 AM UTC 2026
+- Disabled Service Worker in dev.nix (build web --pwa-strategy=none).
+- Added SW unregister logic in web/index.html as safety net.
+- Switched web preview server to http-server with -c-1 (no-cache).
+- Updated app_config.dart to force WSS on HTTPS pages.
+- Verified local connectivity with tools/wss_probe_preview.js.
+

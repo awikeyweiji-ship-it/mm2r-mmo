@@ -36,7 +36,7 @@
           command = [
             "bash"
             "-lc"
-            "flutter pub get && flutter build web --release && npx --yes serve -l $PORT build/web"
+            "flutter pub get && flutter build web --release --pwa-strategy=none && npx --yes http-server build/web -p $PORT -a 0.0.0.0 -c-1"
           ];
           manager = "web";
         };

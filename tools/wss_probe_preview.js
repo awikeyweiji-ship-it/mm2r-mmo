@@ -3,7 +3,6 @@ const http = require('http');
 
 // Simple probe to verify WSS connectivity logic from a script
 // Usage: node tools/wss_probe_preview.js <baseUrl>
-// If baseUrl is not provided, defaults to http://localhost:8080
 
 const baseUrl = process.argv[2] || 'http://localhost:8080';
 
@@ -18,7 +17,9 @@ wsUrl += '/ws';
 console.log(`Derived WS URL: ${wsUrl}`);
 
 // 2. Connect
-const ws = new WebSocket(`${wsUrl}?roomId=probe_test`);
+const ws = new WebSocket(`${wsUrl}?roomId=probe_test`, {
+    rejectUnauthorized: false // In case of self-signed certs in some envs
+});
 
 const timeout = setTimeout(() => {
     console.error('TIMEOUT: WebSocket connection timed out after 5000ms');

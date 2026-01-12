@@ -24,8 +24,8 @@ class AppConfig extends ChangeNotifier {
     final Uri currentUri = Uri.base;
     String detectedBaseUrl;
 
-    // Detect base URL from browser location
     if (currentUri.host.endsWith('.app.goog') || currentUri.host.endsWith('.cloudworkstations.dev')) {
+      // For Cloud Workstations / IDX previews
       detectedBaseUrl = '${currentUri.scheme}://${currentUri.host}';
       if (currentUri.hasPort && currentUri.port != 80 && currentUri.port != 443) {
          detectedBaseUrl += ':${currentUri.port}';
@@ -49,15 +49,14 @@ class AppConfig extends ChangeNotifier {
   String deriveWsUrl(String httpBaseUrl) {
       final Uri currentUri = Uri.base;
       String wsScheme = 'ws';
+      // If the page is loaded via HTTPS, we MUST use WSS.
       if (currentUri.scheme == 'https' || httpBaseUrl.startsWith('https')) {
           wsScheme = 'wss';
       }
 
-      // Parse the httpBaseUrl to get host/port
       Uri parsedHttp = Uri.parse(httpBaseUrl);
       
-      // Construct WS URL
-      // Strict requirement: path must be /ws
+      // Reconstruct with correct scheme and path
       Uri wsUri = parsedHttp.replace(
           scheme: wsScheme,
           path: '/ws'
