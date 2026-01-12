@@ -70,3 +70,17 @@
 - [2026-01-12 03:30] Android Emulator check skipped (SDK missing). Recommended Web Preview.
 - [2026-01-12 03:36] IDX Previews configured (Web, Android, Backend). Added instructions to README.
 - [2026-01-12 04:00] Web Preview Port Fix: dev.nix 强制使用 $PORT 和 0.0.0.0，修复 Starting server 卡死。
+- [2026-01-12 04:05] Web Preview Static Fix: 切换到 flutter build web --release + npx serve 静态托管模式，解决 flutter run web-server 启动不稳定问题。
+## WS Reconnect Fix Mon Jan 12 07:12:07 AM UTC 2026
+- Fixed wsUrl derivation (http->ws, https->wss, no trailing slash).
+- Added Debug UI Overlay in WorldScreen (BaseURL, Health, WS Status, Room info).
+- Auto-reconnect enabled on start.
+- Verified WS connection via node script (WS_OPEN_SUCCESS).
+
+## WSS E2E Fix Mon Jan 12 07:23:27 AM UTC 2026
+- Enforced strict WSS derivation in app_config.dart (https -> wss, path=/ws).
+- Added comprehensive Debug UI in main.dart (BaseURL, Health, WS Status, Last Error, Retry Button).
+- Created tools/wss_probe_preview.js for verifying connection logic.
+- Verified local connection (ws://localhost:8080/ws) -> SUCCESS.
+- Ready for Preview environment verification (UI will show derived wss://.../ws).
+

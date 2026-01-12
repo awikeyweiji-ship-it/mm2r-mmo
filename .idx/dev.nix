@@ -36,9 +36,9 @@
           command = [
             "bash"
             "-lc"
-            "flutter pub get && flutter config --no-analytics && flutter run -d web-server --web-hostname 0.0.0.0 --web-port $PORT"
+            "flutter pub get && flutter build web --release && npx --yes serve -l $PORT build/web"
           ];
-          manager = "flutter";
+          manager = "web";
         };
         android = {
           command = [

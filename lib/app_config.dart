@@ -10,12 +10,13 @@ class AppConfig extends ChangeNotifier {
   String wsStatus = 'Disconnected';
   String lastHealthUrl = '';
   String lastWsUrl = '';
+  String lastWsError = '';
   String browserOrigin = Uri.base.origin;
   
   WebSocketChannel? ws;
   String? playerId;
+  int playerCount = 0;
   
-  // Stream controller to broadcast game state updates to UI
   final _gameStateController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get gameStateStream => _gameStateController.stream;
 
@@ -23,10 +24,19 @@ class AppConfig extends ChangeNotifier {
     final Uri currentUri = Uri.base;
     String detectedBaseUrl;
 
-    if (currentUri.host.endsWith('.app.goog')) {
-      detectedBaseUrl = 'https://${currentUri.host}:8080';
+    // Detect base URL from browser location
+    if (currentUri.host.endsWith('.app.goog') || currentUri.host.endsWith('.cloudworkstations.dev')) {
+      detectedBaseUrl = '${currentUri.scheme}://${currentUri.host}';
+      if (currentUri.hasPort && currentUri.port != 80 && currentUri.port != 443) {
+         detectedBaseUrl += ':${currentUri.port}';
+      }
     } else {
       detectedBaseUrl = 'http://localhost:8080';
+    }
+    
+    // Allow overriding via query param
+    if (currentUri.queryParameters.containsKey('backend')) {
+        detectedBaseUrl = currentUri.queryParameters['backend']!;
     }
 
     baseUrl = detectedBaseUrl;
@@ -34,6 +44,26 @@ class AppConfig extends ChangeNotifier {
 
     await _checkHealth();
     await _connectWs();
+  }
+
+  String deriveWsUrl(String httpBaseUrl) {
+      final Uri currentUri = Uri.base;
+      String wsScheme = 'ws';
+      if (currentUri.scheme == 'https' || httpBaseUrl.startsWith('https')) {
+          wsScheme = 'wss';
+      }
+
+      // Parse the httpBaseUrl to get host/port
+      Uri parsedHttp = Uri.parse(httpBaseUrl);
+      
+      // Construct WS URL
+      // Strict requirement: path must be /ws
+      Uri wsUri = parsedHttp.replace(
+          scheme: wsScheme,
+          path: '/ws'
+      );
+      
+      return wsUri.toString();
   }
 
   Future<void> _checkHealth() async {
@@ -44,22 +74,28 @@ class AppConfig extends ChangeNotifier {
       if (response.statusCode == 200) {
         healthStatus = 'OK';
       } else {
-        healthStatus = 'Error: ${response.statusCode}';
+        healthStatus = 'Fail: ${response.statusCode}';
       }
     } catch (e) {
-      healthStatus = 'Exception: ${e.toString()}';
+      healthStatus = 'Err: ${e.toString()}';
     }
     notifyListeners();
   }
 
   Future<void> _connectWs() async {
     if (baseUrl == null) return;
-    final wsUrl = baseUrl!.replaceFirst('http', 'ws');
-    lastWsUrl = '$wsUrl?roomId=poc_world&name=player-${DateTime.now().millisecondsSinceEpoch % 1000}';
+    
+    String wsBase = deriveWsUrl(baseUrl!);
+    lastWsUrl = '$wsBase?roomId=poc_world&name=player-${DateTime.now().millisecondsSinceEpoch % 1000}';
 
     try {
+      if (ws != null) {
+          ws!.sink.close();
+      }
+      print("Connecting to WS: $lastWsUrl");
       ws = WebSocketChannel.connect(Uri.parse(lastWsUrl));
       wsStatus = 'Connecting';
+      lastWsError = '';
       notifyListeners();
 
       ws!.stream.listen(
@@ -67,16 +103,21 @@ class AppConfig extends ChangeNotifier {
             try {
                 if (wsStatus != 'Connected') {
                     wsStatus = 'Connected';
+                    lastWsError = '';
                     notifyListeners();
                 }
                 
                 final data = jsonDecode(message);
                 
-                // Handle different message types (snapshot, delta, legacy state)
                 if (data['type'] == 'welcome') {
                     playerId = data['playerId'];
                     notifyListeners();
-                } else if (data['type'] == 'state' || data['type'] == 'snapshot' || data['type'] == 'delta') {
+                } else if (data['type'] == 'snapshot') {
+                    final players = data['players'] as Map<String, dynamic>;
+                    playerCount = players.length;
+                    _gameStateController.add(data);
+                    notifyListeners();
+                } else if (data['type'] == 'state' || data['type'] == 'delta') {
                     _gameStateController.add(data);
                 }
             } catch (e) {
@@ -85,21 +126,28 @@ class AppConfig extends ChangeNotifier {
         },
         onDone: () {
           wsStatus = 'Disconnected';
+          if (lastWsError.isEmpty) lastWsError = 'Closed by server';
           notifyListeners();
         },
         onError: (error) {
-          wsStatus = 'Error: $error';
+          wsStatus = 'Error';
+          lastWsError = error.toString();
           notifyListeners();
         },
       );
     } catch (e) {
-      wsStatus = 'Exception: ${e.toString()}';
+      wsStatus = 'Exception';
+      lastWsError = e.toString();
       notifyListeners();
     }
   }
 
   void sendWsMessage(String message) {
       ws?.sink.add(message);
+  }
+  
+  void retryConnection() {
+      _connectWs();
   }
 
   @override

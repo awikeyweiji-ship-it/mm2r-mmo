@@ -1,0 +1,1 @@
+const WebSocket = require('ws'); const ws = new WebSocket('ws://localhost:8080?roomId=test'); ws.on('open', () => { console.log('WS_OPEN_SUCCESS'); process.exit(0); }); ws.on('error', (e) => { console.error('WS_ERROR', e); process.exit(1); });

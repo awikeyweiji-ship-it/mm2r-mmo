@@ -107,16 +107,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
         if (byteData != null) {
             final bytes = byteData.buffer.asUint8List();
             final b64 = base64Encode(bytes);
-            // In Flutter Web, we can't easily write to local fs directly from Dart
-            // We'll log the fact that we generated it, and maybe we can use a helper if available.
-            // For now, we print a marker that the agent can pick up.
             print("VISUAL_PROOF_B64_START");
-            print(b64.substring(0, min(100, b64.length))); // Print just a bit to show it works
+            print(b64.substring(0, min(100, b64.length))); 
             print("VISUAL_PROOF_B64_END");
-            
-            // To fulfill "write to file" req, we rely on the agent to do it if possible, 
-            // or we try to use a service if it exists. 
-            // Since I am the agent, I can see this output and then write it myself in the next step.
         }
     } catch (e) {
         print("Screenshot failed: $e");
@@ -229,61 +222,118 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[900],
-      appBar: AppBar(
-        title: Text(_statusMsg, style: const TextStyle(fontSize: 14)),
-        backgroundColor: Colors.indigo[900],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(40.0),
-          child: Consumer<AppConfig>(
-            builder: (context, config, child) {
-              return Container(
-                color: Colors.black26,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Players: ${_remotePlayers.length + 1}', style: const TextStyle(fontSize: 10)),
-                    Text('WS: ${config.wsStatus}', style: const TextStyle(fontSize: 10)),
-                  ],
+      body: Stack(
+        children: [
+            RepaintBoundary(
+                key: _repaintKey,
+                child: GestureDetector(
+                onPanUpdate: (details) {
+                    _moveLocalPlayer(_localPos.x + details.delta.dx, _localPos.y + details.delta.dy);
+                },
+                child: Consumer<AppConfig>(
+                    builder: (context, config, child) {
+                        return StreamBuilder<Map<String, dynamic>>(
+                            stream: config.gameStateStream,
+                            builder: (context, snapshot) {
+                                if (snapshot.hasData) _handleGameState(snapshot.data!, config);
+                                return AnimatedBuilder(
+                                    animation: _controller!,
+                                    builder: (context, child) {
+                                        final now = DateTime.now().millisecondsSinceEpoch.toDouble();
+                                        return CustomPaint(
+                                            painter: WorldPainter(
+                                                localPos: _localPos,
+                                                remotePlayers: _remotePlayers.values.toList(),
+                                                portalRect: _portalRect,
+                                                now: now,
+                                                myId: config.playerId
+                                            ),
+                                            size: Size.infinite,
+                                        );
+                                    }
+                                );
+                            }
+                        );
+                    }
                 ),
-              );
-            },
-          ),
-        ),
-      ),
-      body: RepaintBoundary(
-        key: _repaintKey,
-        child: GestureDetector(
-          onPanUpdate: (details) {
-              _moveLocalPlayer(_localPos.x + details.delta.dx, _localPos.y + details.delta.dy);
-          },
-          child: Consumer<AppConfig>(
-              builder: (context, config, child) {
-                  return StreamBuilder<Map<String, dynamic>>(
-                      stream: config.gameStateStream,
-                      builder: (context, snapshot) {
-                          if (snapshot.hasData) _handleGameState(snapshot.data!, config);
-                          return AnimatedBuilder(
-                              animation: _controller!,
-                              builder: (context, child) {
-                                  final now = DateTime.now().millisecondsSinceEpoch.toDouble();
-                                  return CustomPaint(
-                                      painter: WorldPainter(
-                                          localPos: _localPos,
-                                          remotePlayers: _remotePlayers.values.toList(),
-                                          portalRect: _portalRect,
-                                          now: now,
-                                          myId: config.playerId
-                                      ),
-                                      size: Size.infinite,
-                                  );
-                              }
-                          );
-                      }
-                  );
-              }
-          ),
-        ),
+                ),
+            ),
+            // Debug Overlay
+            Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Consumer<AppConfig>(
+                    builder: (context, config, child) {
+                        Color statusColor = Colors.grey;
+                        if (config.wsStatus == 'Connected') statusColor = Colors.green;
+                        if (config.wsStatus.startsWith('Error') || config.wsStatus.startsWith('Exception')) statusColor = Colors.red;
+                        if (config.wsStatus == 'Disconnected') statusColor = Colors.orange;
+
+                        return Container(
+                            color: Colors.black87,
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                    Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                            Expanded(child: Text('BaseURL: ${config.baseUrl ?? "Detecting..."}', style: const TextStyle(color: Colors.white70, fontSize: 10), overflow: TextOverflow.ellipsis)),
+                                            Text('Health: ${config.healthStatus}', style: TextStyle(color: config.healthStatus == 'OK' ? Colors.greenAccent : Colors.redAccent, fontSize: 10)),
+                                        ]
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text('WS URL: ${config.lastWsUrl}', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                                    const SizedBox(height: 4),
+                                    Row(children: [
+                                        Icon(Icons.circle, size: 8, color: statusColor),
+                                        const SizedBox(width: 4),
+                                        Text('WS: ${config.wsStatus}', style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                                        if (config.wsStatus != 'Connected') ...[
+                                            const SizedBox(width: 10),
+                                            SizedBox(
+                                                height: 18,
+                                                width: 60,
+                                                child: ElevatedButton(
+                                                    onPressed: config.retryConnection,
+                                                    style: ElevatedButton.styleFrom(padding: EdgeInsets.zero, backgroundColor: Colors.blueGrey),
+                                                    child: const Text("Retry", style: TextStyle(fontSize: 10))
+                                                )
+                                            )
+                                        ]
+                                    ]),
+                                    if (config.lastWsError.isNotEmpty) 
+                                        Container(
+                                            margin: const EdgeInsets.only(top: 4),
+                                            padding: const EdgeInsets.all(4),
+                                            color: Colors.red.withOpacity(0.2),
+                                            width: double.infinity,
+                                            child: Text('Last Error: ${config.lastWsError}', style: const TextStyle(color: Colors.redAccent, fontSize: 10))
+                                        ),
+                                    const Divider(height: 8, color: Colors.white24),
+                                    Text('Room: poc_world | Me: ${config.playerId?.substring(0, min(8, config.playerId?.length ?? 0)) ?? "?"} | Players: ${config.playerCount}', 
+                                        style: const TextStyle(color: Colors.white, fontSize: 11)
+                                    ),
+                                ],
+                            ),
+                        );
+                    },
+                ),
+            ),
+             // Bottom Controls
+             Positioned(
+                 bottom: 0,
+                 left: 0,
+                 right: 0,
+                 child: Container(
+                     color: Colors.black54,
+                     padding: const EdgeInsets.all(8),
+                     child: Text(_statusMsg, textAlign: TextAlign.center, style: const TextStyle(color: Colors.yellowAccent)),
+                 )
+             )
+        ],
       ),
     );
   }
@@ -306,6 +356,9 @@ class WorldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Clear background
+    canvas.drawRect(Rect.fromLTWH(0,0, size.width, size.height), Paint()..color = Colors.black);
+
     final gridPaint = Paint()..color = Colors.white10..strokeWidth = 1;
     for (double i = 0; i < size.width; i += 50) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
@@ -329,7 +382,7 @@ class WorldPainter extends CustomPainter {
     for (final player in remotePlayers) {
       _drawPlayer(canvas, player.getLerpPosition(now), player.color, player.name);
     }
-    _drawPlayer(canvas, localPos, Colors.blue, "Me (${myId?.substring(0, 4) ?? '?'})");
+    _drawPlayer(canvas, localPos, Colors.blue, "Me (${myId?.substring(0, min(4, myId?.length ?? 0)) ?? '?'})");
   }
 
   void _drawPlayer(Canvas canvas, Point<double> pos, Color color, String name) {
