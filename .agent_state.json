@@ -1,1 +1,7 @@
-{"s3_3_http_proxy_fix": true}
+{
+  "s1_visual_true_mmo": true,
+  "s2_netcore_scalable": true,
+  "s3_first_playable": true,
+  "s4_quest_pickup_npc": true,
+  "last_ts": 1768207200000
+}

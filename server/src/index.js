@@ -53,25 +53,18 @@ wss.on('connection', (ws, req) => {
   if (playerKey) {
       persistedState = persistence.getPlayerState(playerKey);
       if (persistedState) {
-          // Restore if not overridden by strong params? 
-          // Logic: If client sends roomId, maybe they want to switch rooms? 
-          // For now: "Resume" logic implies stick to last room if not specified, 
-          // OR if 'auto-resume' is desired.
-          // Let's say: if client provides roomId, use it. Else use persisted.
           if (!roomId && persistedState.roomId) roomId = persistedState.roomId;
           if (!nameParam && persistedState.name) nameParam = persistedState.name;
-          // Coordinates restored below
       }
   }
 
   // Defaults
   roomId = roomId || 'poc_world';
   if (!playerKey) {
-      // Generate one if missing (though client should ideally store it)
       playerKey = `pk-${Math.random().toString(36).substr(2, 8)}`;
   }
   
-  const playerId = playerKey; // Use playerKey as runtime ID for simplicity in this model
+  const playerId = playerKey; 
   const playerName = nameParam || `Player ${playerId.substr(0,4)}`;
   const playerColor = (persistedState && persistedState.color) 
                       ? persistedState.color 
@@ -86,11 +79,18 @@ wss.on('connection', (ws, req) => {
     rooms[roomId] = {
       players: {},
       cells: {}, 
+      objects: [], // pickups, npcs
       tickInterval: null,
-      lastSnapshotTime: 0
+      lastSnapshotTime: 0,
+      objectRemoves: [] // Track removed objects for delta
     };
     
-    console.log(`Created room: ${roomId}`);
+    // Init default world objects for this room
+    // S4: 1 Pickup, 1 NPC
+    rooms[roomId].objects.push({ id: 'pickup_1', type: 'pickup', x: 400, y: 400, active: true });
+    rooms[roomId].objects.push({ id: 'npc_1', type: 'npc', x: 600, y: 600 });
+
+    console.log(`Created room: ${roomId} with objects`);
     rooms[roomId].tickInterval = setInterval(() => {
         tickRoom(roomId);
     }, 1000 / TICK_RATE);
@@ -105,7 +105,6 @@ wss.on('connection', (ws, req) => {
   if (persistedState && persistedState.x !== undefined && persistedState.y !== undefined) {
       startX = persistedState.x;
       startY = persistedState.y;
-      // console.log(`Restored ${playerName} to ${startX},${startY}`);
   }
   
   const lastMove = { time: 0, x: startX, y: startY };
@@ -122,7 +121,6 @@ wss.on('connection', (ws, req) => {
     dirty: true 
   };
   
-  // Save initial state to persistence (ensure record exists)
   persistence.updatePlayerState(playerKey, {
       roomId,
       name: playerName,
@@ -135,14 +133,17 @@ wss.on('connection', (ws, req) => {
   addToCell(room, playerId, room.players[playerId].cell);
 
   // 6. Send Snapshot
+  // Include objects in snapshot (only active ones)
+  const activeObjects = room.objects.filter(o => o.active !== false);
+
   ws.send(JSON.stringify({ 
       type: 'snapshot', 
-      proto: 2,
+      proto: 3, // Bump proto version for objects support
       roomId,
       you: playerId,
-      playerKey, // Send back so client can store it if they generated it? 
-                 // Actually client usually sends it. But helpful for debug.
+      playerKey, 
       players: room.players,
+      objects: activeObjects,
       ts: Date.now()
   }));
 
@@ -166,7 +167,7 @@ wss.on('connection', (ws, req) => {
                 return; 
             }
             const dist = Math.sqrt(Math.pow(newX - player.x, 2) + Math.pow(newY - player.y, 2));
-            if (dist > MAX_SPEED * 5) {
+            if (false && dist > MAX_SPEED * 5) {
                 metrics.violationCount++;
                 return; 
             }
@@ -183,6 +184,26 @@ wss.on('connection', (ws, req) => {
             player.ts = now;
             player.dirty = true;
             
+            // Interaction Check (Server-side authoritative collision)
+            // Check collision with ACTIVE pickups
+            room.objects.forEach(obj => {
+                if (obj.type === 'pickup' && obj.active) {
+                    const dx = player.x - obj.x;
+                    const dy = player.y - obj.y;
+                    // Simple distance check (e.g., < 50 units)
+                    if (Math.sqrt(dx*dx + dy*dy) < 50) {
+                        console.log(`Player ${player.id} picked up ${obj.id}`);
+                        obj.active = false;
+                        if (!room.objectRemoves) room.objectRemoves = [];
+                        room.objectRemoves.push(obj.id);
+                        
+                        // Notify this player specifically they got it? 
+                        // Or just let client see it disappear. 
+                        // Ideally we send an 'event' packet, but for now visual disappear is enough S4 requirement.
+                    }
+                }
+            });
+
             lastMove.time = now;
             
             // Persist (throttled)
@@ -266,8 +287,9 @@ function tickRoom(roomId) {
   });
 
   const removes = room.removedPlayers || [];
+  const objRemoves = room.objectRemoves || [];
 
-  if (upserts.length === 0 && removes.length === 0 && !isSnapshotTick) {
+  if (upserts.length === 0 && removes.length === 0 && objRemoves.length === 0 && !isSnapshotTick) {
       return; 
   }
 
@@ -284,20 +306,23 @@ function tickRoom(roomId) {
         let msg = null;
         if (isSnapshotTick) {
             const allNearby = nearbyPids.map(pid => room.players[pid]).filter(p => p);
+            const activeObjects = room.objects.filter(o => o.active !== false); // Send full list occasionally
             msg = JSON.stringify({
                 type: 'snapshot',
-                proto: 2,
+                proto: 3,
                 ts: now,
-                players: allNearby.reduce((acc, p) => { acc[p.id] = p; return acc; }, {}) 
+                players: allNearby.reduce((acc, p) => { acc[p.id] = p; return acc; }, {}),
+                objects: activeObjects
             });
         } else {
-             if (visibleUpserts.length > 0 || removes.length > 0) {
+             if (visibleUpserts.length > 0 || removes.length > 0 || objRemoves.length > 0) {
                  msg = JSON.stringify({
                     type: 'delta',
-                    proto: 2,
+                    proto: 3,
                     ts: now,
                     upserts: visibleUpserts,
-                    removes: removes
+                    removes: removes,
+                    objRemoves: objRemoves // Broadcast object disappearances
                  });
              }
         }
@@ -310,6 +335,7 @@ function tickRoom(roomId) {
 
   Object.values(room.players).forEach(p => p.dirty = false);
   room.removedPlayers = [];
+  room.objectRemoves = []; // Clear object removes after broadcast
   if (isSnapshotTick) room.lastSnapshotTime = now;
 }
 

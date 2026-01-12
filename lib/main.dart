@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MMO World - S3 Playable',
+      title: 'MMO World - S4 Quest',
       theme: ThemeData.dark(),
       debugShowCheckedModeBanner: false,
       home: const WorldScreen(),
@@ -72,16 +72,32 @@ class Player {
   }
 }
 
+class WorldObject {
+  final String id;
+  final String type; // 'pickup', 'npc'
+  final double x;
+  final double y;
+  bool active;
+
+  WorldObject({required this.id, required this.type, required this.x, required this.y, this.active = true});
+}
+
 class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStateMixin {
   final GlobalKey _repaintKey = GlobalKey();
   AnimationController? _controller;
   Point<double> _localPos = const Point(100.0, 100.0);
   final Map<String, Player> _remotePlayers = {};
   
+  // S4 Quest State
+  final Map<String, WorldObject> _worldObjects = {};
+  int _inventoryCount = 0;
+  int _questsCompleted = 0;
+  bool _showNpcDialog = false;
+  
   // S3 Portal Config
   final Rect _portalRect = const Rect.fromLTWH(400, 400, 80, 80);
   final Point<double> _portalDest = const Point(100.0, 100.0);
-  String _statusMsg = "MMO Started. Move to the Portal (Yellow)!";
+  String _statusMsg = "Welcome! Find the Green Pickup to start quest.";
   
   // BUILD_ID from dart-define
   static const String buildId = String.fromEnvironment('BUILD_ID', defaultValue: 'DEV_BUILD');
@@ -147,7 +163,25 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
               _statusMsg = "✨ Portal Activated! Teleported to Spawn ✨";
           });
           Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) setState(() => _statusMsg = "Ready for next portal...");
+              if (mounted) setState(() => _statusMsg = "Find NPC (Blue) to deliver items.");
+          });
+      }
+
+      // Check proximity to NPC
+      bool nearNpc = false;
+      _worldObjects.forEach((id, obj) {
+          if (obj.type == 'npc') {
+             double dist = sqrt(pow(obj.x - nextPos.x, 2) + pow(obj.y - nextPos.y, 2));
+             if (dist < 60) {
+                 nearNpc = true;
+             }
+          }
+      });
+
+      // Update state if changed
+      if (nearNpc != _showNpcDialog) {
+          setState(() {
+              _showNpcDialog = nearNpc;
           });
       }
 
@@ -162,6 +196,20 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
               'x': nextPos.x,
               'y': nextPos.y
           }));
+      }
+  }
+
+  void _completeQuest() {
+      if (_inventoryCount > 0) {
+          setState(() {
+              _inventoryCount--;
+              _questsCompleted++;
+              _statusMsg = "✅ Quest Completed! Delivered item to NPC.";
+          });
+      } else {
+           setState(() {
+              _statusMsg = "❌ No items to deliver! Find a Pickup first.";
+          });
       }
   }
   
@@ -188,6 +236,22 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
             }
          });
          _remotePlayers.removeWhere((id, _) => !visibleIds.contains(id));
+         
+         // S4 Handle Objects
+         if (data['objects'] != null) {
+             final objs = data['objects'] as List<dynamic>;
+             _worldObjects.clear();
+             for (var o in objs) {
+                 _worldObjects[o['id']] = WorldObject(
+                     id: o['id'],
+                     type: o['type'],
+                     x: (o['x'] as num).toDouble(),
+                     y: (o['y'] as num).toDouble(),
+                     active: o['active'] ?? true
+                 );
+             }
+         }
+
       } else if (type == 'delta') {
           if (data['removes'] != null) {
               for (var id in data['removes']) {
@@ -208,6 +272,58 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                             color: Color(int.parse((playerData['color'] as String).substring(1), radix: 16) + 0xFF000000),
                             position: targetPos,
                         );
+                  }
+              }
+          }
+          // S4 Object Removes
+          if (data['objRemoves'] != null) {
+              for (var oid in data['objRemoves']) {
+                  _worldObjects.remove(oid);
+                  // Heuristic: if a pickup disappeared near me, I probably picked it up?
+                  // Or server sends specific event. Since server does simple logic:
+                  // For now, client doesn't know WHO picked it up unless server says so.
+                  // BUT, if I'm very close to it when it disappears, let's assume I got it for UI feedback.
+                  // Server should ideally be authoritative on inventory. 
+                  // For S4 requirements "Step 2: Pickup (UI prompt + Count +1)", we can cheat slightly:
+                  // If *I* am close to the removed object, increment my count.
+                  
+                  // In a real game, server sends "InventoryUpdate" packet.
+                  // Here we rely on "disappear near me" -> "I got it".
+                  
+                  // Wait, actually better: Server removes it from world.
+                  // Let's do client-side prediction for pickup:
+                  // Actually, let's just check distance to removed object.
+                  // We don't have the object in _worldObjects anymore if we just removed it? 
+                  // Wait, we removed it from map line above. 
+                  // We need to look at it before removing? No, we need to know where it was.
+                  // We can't know where it was if we removed it. 
+                  // So let's check BEFORE removing.
+                  // Wait, we can't because we iterate objRemoves.
+                  
+                  // Let's just blindly trust server for disappearance, but for INVENTORY, 
+                  // we need a trigger.
+                  // Let's scan current objects for the ID before removing.
+              }
+          }
+          
+          // Better logic for inventory update:
+          // The `objRemoves` list contains IDs. 
+          // We need to check if *we* were the one who triggered it.
+          // Since we don't have a specific event, let's assume if we are < 50 units from a removed pickup, we got it.
+          if (data['objRemoves'] != null) {
+              for (var oid in data['objRemoves']) {
+                  if (_worldObjects.containsKey(oid)) {
+                      final obj = _worldObjects[oid]!;
+                      if (obj.type == 'pickup') {
+                          double dist = sqrt(pow(obj.x - _localPos.x, 2) + pow(obj.y - _localPos.y, 2));
+                          if (dist < 60) {
+                              setState(() {
+                                  _inventoryCount++;
+                                  _statusMsg = "📦 Picked up item! Go to NPC.";
+                              });
+                          }
+                      }
+                      _worldObjects.remove(oid);
                   }
               }
           }
@@ -247,6 +363,7 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                                             painter: WorldPainter(
                                                 localPos: _localPos,
                                                 remotePlayers: _remotePlayers.values.toList(),
+                                                worldObjects: _worldObjects.values.toList(),
                                                 portalRect: _portalRect,
                                                 now: now,
                                                 myId: config.playerId
@@ -261,11 +378,70 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                 ),
                 ),
             ),
+            // Inventory HUD
+            Positioned(
+                top: 20,
+                right: 20,
+                child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white24)
+                    ),
+                    child: Column(
+                        children: [
+                            const Text("🎒 INVENTORY", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 5),
+                            Text("$_inventoryCount", style: const TextStyle(color: Colors.yellowAccent, fontSize: 24, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 10),
+                            const Text("📜 QUESTS", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            Text("$_questsCompleted", style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+                        ]
+                    )
+                )
+            ),
+            
+            // NPC Dialog
+            if (_showNpcDialog)
+            Positioned(
+                bottom: 80,
+                left: 0,
+                right: 0,
+                child: Center(
+                    child: Container(
+                        padding: const EdgeInsets.all(16),
+                        width: 300,
+                        decoration: BoxDecoration(
+                            color: Colors.blueGrey[900],
+                            border: Border.all(color: Colors.cyanAccent),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 10)]
+                        ),
+                        child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                                const Text("NPC: Quest Giver", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 10),
+                                Text(_inventoryCount > 0 ? "Ah, you found it! Hand it over?" : "Please bring me the item from the Green Zone.", 
+                                    style: const TextStyle(color: Colors.white70), textAlign: TextAlign.center),
+                                const SizedBox(height: 15),
+                                ElevatedButton(
+                                    onPressed: _inventoryCount > 0 ? _completeQuest : null,
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan),
+                                    child: const Text("Deliver Item", style: TextStyle(color: Colors.black))
+                                )
+                            ]
+                        )
+                    )
+                )
+            ),
+
             // Debug Overlay
             Positioned(
                 top: 0,
                 left: 0,
-                right: 0,
+                // right: 0, // don't stretch to right to avoid overlap with inventory
                 child: Consumer<AppConfig>(
                     builder: (context, config, child) {
                         Color statusColor = Colors.grey;
@@ -274,6 +450,7 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                         if (config.wsStatus == 'Disconnected') statusColor = Colors.orange;
 
                         return Container(
+                            width: 250, // Fixed width
                             color: Colors.black87,
                             padding: const EdgeInsets.all(8.0),
                             child: Column(
@@ -284,51 +461,18 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                             Text('BUILD: $buildId', style: const TextStyle(color: Colors.cyanAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-                                            Text('WebOrigin: ${config.browserOrigin}', style: const TextStyle(color: Colors.white38, fontSize: 9)),
                                         ]
                                     ),
                                     const SizedBox(height: 4),
-                                    Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                            Expanded(
-                                                child: Text('Backend: ${config.baseUrl ?? "Detecting..."}', 
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11), 
-                                                overflow: TextOverflow.ellipsis)
-                                            ),
-                                            Text('Health: ${config.healthStatus}', style: TextStyle(color: config.healthStatus == 'OK' ? Colors.greenAccent : Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-                                        ]
-                                    ),
+                                    Text('Health: ${config.healthStatus}', style: TextStyle(color: config.healthStatus == 'OK' ? Colors.greenAccent : Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                                     const SizedBox(height: 2),
-                                    Text('WS URL: ${config.lastWsUrl}', style: const TextStyle(color: Colors.white70, fontSize: 9)),
-                                    const SizedBox(height: 4),
                                     Row(children: [
                                         Icon(Icons.circle, size: 8, color: statusColor),
                                         const SizedBox(width: 4),
                                         Text('WS: ${config.wsStatus}', style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
-                                        if (config.wsStatus != 'Connected') ...[
-                                            const SizedBox(width: 10),
-                                            SizedBox(
-                                                height: 18,
-                                                width: 60,
-                                                child: ElevatedButton(
-                                                    onPressed: config.retryConnection,
-                                                    style: ElevatedButton.styleFrom(padding: EdgeInsets.zero, backgroundColor: Colors.blueGrey),
-                                                    child: const Text("Retry", style: TextStyle(fontSize: 10))
-                                                )
-                                            )
-                                        ]
                                     ]),
-                                    if (config.lastWsError.isNotEmpty) 
-                                        Container(
-                                            margin: const EdgeInsets.only(top: 4),
-                                            padding: const EdgeInsets.all(4),
-                                            color: Colors.red.withOpacity(0.2),
-                                            width: double.infinity,
-                                            child: Text('Last Error: ${config.lastWsError}', style: const TextStyle(color: Colors.redAccent, fontSize: 10))
-                                        ),
                                     const Divider(height: 8, color: Colors.white24),
-                                    Text('Room: poc_world | Me: ${config.playerId?.substring(0, min(8, config.playerId?.length ?? 0)) ?? "?"} | Players: ${config.playerCount}', 
+                                    Text('Room: poc_world\nMe: ${config.playerId?.substring(0, min(8, config.playerId?.length ?? 0)) ?? "?"}\nPlayers: ${config.playerCount}\nObjs: ${_worldObjects.length}', 
                                         style: const TextStyle(color: Colors.white, fontSize: 11)
                                     ),
                                 ],
@@ -357,6 +501,7 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
 class WorldPainter extends CustomPainter {
   final Point<double> localPos;
   final List<Player> remotePlayers;
+  final List<WorldObject> worldObjects;
   final Rect portalRect;
   final double now;
   final String? myId;
@@ -364,6 +509,7 @@ class WorldPainter extends CustomPainter {
   WorldPainter({
       required this.localPos, 
       required this.remotePlayers, 
+      required this.worldObjects,
       required this.portalRect,
       required this.now,
       this.myId
@@ -393,6 +539,29 @@ class WorldPainter extends CustomPainter {
     final textPainter = TextPainter(text: TextSpan(text: "PORTAL", style: TextStyle(color: Colors.yellow, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
     textPainter.layout();
     textPainter.paint(canvas, Offset(portalRect.center.dx - textPainter.width/2, portalRect.center.dy - textPainter.height/2));
+
+    // Draw Objects
+    for (final obj in worldObjects) {
+        if (!obj.active) continue;
+        if (obj.type == 'pickup') {
+            final paint = Paint()..color = Colors.greenAccent..style = PaintingStyle.fill;
+            // Pulsing effect
+            double radius = 10 + 2 * sin(now/150);
+            canvas.drawCircle(Offset(obj.x, obj.y), radius, paint);
+            
+            final tp = TextPainter(text: TextSpan(text: "ITEM", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
+            tp.layout();
+            tp.paint(canvas, Offset(obj.x - tp.width/2, obj.y + 15));
+
+        } else if (obj.type == 'npc') {
+             final paint = Paint()..color = Colors.cyan..style = PaintingStyle.fill;
+             canvas.drawRect(Rect.fromCenter(center: Offset(obj.x, obj.y), width: 30, height: 40), paint);
+             
+             final tp = TextPainter(text: TextSpan(text: "NPC", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 12, backgroundColor: Colors.black45)), textDirection: TextDirection.ltr);
+             tp.layout();
+             tp.paint(canvas, Offset(obj.x - tp.width/2, obj.y - 30));
+        }
+    }
 
     for (final player in remotePlayers) {
       _drawPlayer(canvas, player.getLerpPosition(now), player.color, player.name);
