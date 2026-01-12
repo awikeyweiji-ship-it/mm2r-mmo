@@ -1,6 +1,62 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('path');
+const fs = require('fs');
+
+// AUTO-FIX: Check and kill process on port 9000 before starting
+const CHECK_PORT = 9000;
+
+function killZombieProcess() {
+  try {
+    const logPath = path.join(__dirname, '../logs');
+    if (!fs.existsSync(logPath)) fs.mkdirSync(logPath, { recursive: true });
+    
+    // We can't rely on 'lsof' or 'ss' if terminal commands fail.
+    // We scan /proc for node processes running this script.
+    // This is Linux-specific but works in the IDX environment.
+    const pids = fs.readdirSync('/proc').filter(f => /^\d+$/.test(f));
+    const selfPid = process.pid;
+    let killed = false;
+    let logContent = '';
+
+    for (const pid of pids) {
+      if (pid === String(selfPid)) continue; // Don't kill self
+
+      try {
+        const cmdlinePath = path.join('/proc', pid, 'cmdline');
+        if (!fs.existsSync(cmdlinePath)) continue;
+
+        const cmdline = fs.readFileSync(cmdlinePath, 'utf8');
+        // Look for the signature of this very script running
+        // Cmdline args are null-separated
+        if (cmdline.includes('node') && cmdline.includes('web_dev_proxy.js')) {
+           logContent += `Found zombie process PID: ${pid}\n`;
+           try {
+             process.kill(parseInt(pid), 'SIGKILL');
+             logContent += `Successfully killed PID: ${pid}\n`;
+             killed = true;
+           } catch (e) {
+             logContent += `Failed to kill PID: ${pid} - ${e.message}\n`;
+           }
+        }
+      } catch (e) {
+        // Process might have vanished
+      }
+    }
+
+    if (killed) {
+      const logFile = path.join(logPath, `port_9000_fix_${Date.now()}.log`);
+      fs.writeFileSync(logFile, logContent);
+      console.log('[Auto-Fix] Zombie process killed. Log written to ' + logFile);
+    }
+
+  } catch (e) {
+    console.log('[Auto-Fix] Cleanup failed or not supported:', e.message);
+  }
+}
+
+// Run the cleanup before doing anything else
+killZombieProcess();
 
 const app = express();
 // FIX: Fallback if PORT is not set, instead of crashing.
