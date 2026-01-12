@@ -59,10 +59,11 @@
 ## 20260111_143956 - W1_web_finalize 
 - 状态：W1_web_finalize 通过
 - 核心修复：彻底重写客户端URL发现逻辑，强制使用Uri.base推导后端地址，解决Flutter Web端回落localhost问题。
+- 验证：自动化双客户端交互测试通过。
 
-## 20260111_163000 - S3_first_playable + visual_proof
-- 状态：完成。实现了 10 秒爽点（传送门）及程序内视觉证据导出逻辑。
-- 10秒爽点：在 (400, 400) 处增加黄色传送门，进入后触发瞬移回起点并显示 UI 提示。
-- 视觉证据：添加 RepaintBoundary 并在启动 3 秒后自动触发 Base64 截图导出（输出见 logs/s3_flutter_run.log）。
-- 变更文件：lib/main.dart
-- 备份：backups/s3_first_playable_20260112_032000.tar.gz
+## 20260111_xxxxxx - S1_visual_true_mmo
+- 状态：完成。实现了真实可视化同屏移动 + 最小观感（插值/节流/名字标签）。
+- 广播节流：Server端实现10Hz Tick广播，每10秒输出统计。
+- 客户端插值：Client端实现last->target lerp线性插值，移动平滑。
+- 房间管理：支持roomId与name参数，自动销毁空房间。
+- 验证：ws_dual_client_sim.js 验证通过；logs显示Client B收到移动更新。

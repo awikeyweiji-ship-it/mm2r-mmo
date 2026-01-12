@@ -1,53 +1,64 @@
-{
-  # See https://www.jetpack.io/devbox/docs/configuration/ for reference.
-  pkgs: [
-    pkgs.flutter.withPackages (ps: with ps; [ 
-      # Add your flutter packages here
-    ])
-  ],
-  # Installs these Nix packages into the environment.
-  # pkgs: [
-  #   pkgs.go
-  #   pkgs.python311
-  #   pkgs.python311Packages.pip
-  # ],
-  # Installs these VSCode extensions.
-  # extensions: [
-  #   "vscodevim.vim"
-  #   "esbenp.prettier-vscode"
-  # ],
-  # Runs this command when the environment is created.
-  init_hook: [
-    "echo 'Welcome to Firebase Genkit!\n'"
-    # Add your initialization commands here.
-  ],
-  # Runs this command when the user connects to the environment.
-  on_create: [],
-  # Runs this command when the user opens the editor.
-  on_connect: [],
-  dev_platforms: ["x86_64-linux"],
-  idx: {
-    previews: {
-      enable: true
-      previews: [
-        {
-          id: "backend"
-          name: "Backend"
-          port: 8080
-          command: ["(cd server && npm start)"] # Corrected command
-        }
-        {
-          id: "web"
-          name: "Web"
-          port: 8675
-          command: ["npm", "run", "dev"]
-        }
-      ]
-    }
-    extensions: [
+{ pkgs, ... }: {
+  channel = "stable-23.11"; # or "unstable"
+
+  packages = [
+    pkgs.flutter
+    pkgs.dart
+    pkgs.nodejs_20
+  ];
+
+  env = {
+    # Environment variables if needed
+  };
+
+  idx = {
+    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id".
+    extensions = [
       "dart-code.dart-code"
       "dart-code.flutter"
       "ms-vscode.vscode-typescript-next"
-    ]
-  }
+    ];
+
+    # Workspace lifecycle hooks
+    workspace = {
+      # Runs when a workspace is first created
+      onCreate = {
+        # Example: install JS dependencies
+        # npm-install = "npm install";
+      };
+      # Runs when the workspace is (re)started
+      onStart = {
+        # Example: start a background task
+      };
+    };
+
+    previews = {
+      enable = true;
+      previews = {
+        web = {
+          command = [
+            "flutter"
+            "run"
+            "-d"
+            "web-server"
+            "--web-hostname"
+            "0.0.0.0"
+            "--web-port"
+            "$PORT"
+          ];
+          manager = "flutter";
+        };
+        backend = {
+          command = [
+            "bash"
+            "-c"
+            "cd server && npm install && npm start"
+          ];
+          env = {
+            PORT = "8080";
+          };
+        };
+      };
+    };
+  };
 }

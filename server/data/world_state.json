@@ -1,0 +1,18 @@
+{
+  "bot_persist_test_s1el": {
+    "roomId": "poc_world",
+    "name": "PersistBot",
+    "color": "#c0fd18",
+    "x": 207.92757755304103,
+    "y": 190.01693221828145,
+    "ts": 1768187438352
+  },
+  "bot_persist_test_qmm3": {
+    "roomId": "poc_world",
+    "name": "PersistBot",
+    "color": "#74a96e",
+    "x": 118.99246774441161,
+    "y": 183.284053177356,
+    "ts": 1768187611392
+  }
+}

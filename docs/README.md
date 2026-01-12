@@ -21,3 +21,19 @@
    - 进入 **地图调试 MapDebug** 页面，点击 **连接世界WS**，确保能连接成功（App 会自动将 https 替换为 wss 并连接 /ws 路径）。
 
 注意：每次重新打开 Workspace，该 URL 可能会变化，如果连接失败请重新检查 URL。
+# myapp
+
+A new Flutter project.
+
+## Getting Started
+
+This project is a starting point for a Flutter application.
+
+A few resources to get you started if this is your first Flutter project:
+
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.

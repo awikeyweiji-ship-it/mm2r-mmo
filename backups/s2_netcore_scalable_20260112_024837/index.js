@@ -2,14 +2,10 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const cors = require('cors');
-const persistence = require('./persistence');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-
-// Initialize Persistence
-persistence.loadState();
 
 app.use(cors({ origin: true }));
 app.options('*', cors());
@@ -23,10 +19,11 @@ const TICK_RATE = 15; // 15Hz
 const MOVE_THROTTLE_MS = 50;
 const SNAPSHOT_INTERVAL_MS = 3000;
 const CELL_SIZE = 200; // AOI cell size
-const MAX_SPEED = 20; 
+const MAX_SPEED = 20; // Pixels per tick (approx) - generous for lag
 const WORLD_WIDTH = 5000;
 const WORLD_HEIGHT = 5000;
 
+// Metrics
 let metrics = {
     broadcastCount: 0,
     violationCount: 0,
@@ -42,50 +39,21 @@ setInterval(() => {
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const roomId = url.searchParams.get('roomId') || 'poc_world';
+  const nameParam = url.searchParams.get('name');
   
-  // 1. Get client params
-  let playerKey = url.searchParams.get('playerKey');
-  let roomId = url.searchParams.get('roomId');
-  let nameParam = url.searchParams.get('name');
-  
-  // 2. Load from persistence if available
-  let persistedState = null;
-  if (playerKey) {
-      persistedState = persistence.getPlayerState(playerKey);
-      if (persistedState) {
-          // Restore if not overridden by strong params? 
-          // Logic: If client sends roomId, maybe they want to switch rooms? 
-          // For now: "Resume" logic implies stick to last room if not specified, 
-          // OR if 'auto-resume' is desired.
-          // Let's say: if client provides roomId, use it. Else use persisted.
-          if (!roomId && persistedState.roomId) roomId = persistedState.roomId;
-          if (!nameParam && persistedState.name) nameParam = persistedState.name;
-          // Coordinates restored below
-      }
-  }
-
-  // Defaults
-  roomId = roomId || 'poc_world';
-  if (!playerKey) {
-      // Generate one if missing (though client should ideally store it)
-      playerKey = `pk-${Math.random().toString(36).substr(2, 8)}`;
-  }
-  
-  const playerId = playerKey; // Use playerKey as runtime ID for simplicity in this model
-  const playerName = nameParam || `Player ${playerId.substr(0,4)}`;
-  const playerColor = (persistedState && persistedState.color) 
-                      ? persistedState.color 
-                      : `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`;
+  const randId = Math.random().toString(36).substr(2, 6);
+  const playerId = `${nameParam || 'player'}-${randId}`;
+  const playerName = nameParam || `Player ${randId}`;
+  const playerColor = `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`;
 
   ws.roomId = roomId;
   ws.playerId = playerId;
-  ws.playerKey = playerKey;
 
-  // 3. Create/Join Room
   if (!rooms[roomId]) {
     rooms[roomId] = {
       players: {},
-      cells: {}, 
+      cells: {}, // cellKey -> [playerId]
       tickInterval: null,
       lastSnapshotTime: 0
     };
@@ -97,51 +65,28 @@ wss.on('connection', (ws, req) => {
   }
 
   const room = rooms[roomId];
+  const lastMove = { time: 0, x: Math.random() * 300 + 50, y: Math.random() * 300 + 50 };
   
-  // 4. Determine Spawn Position
-  let startX = Math.random() * 300 + 50;
-  let startY = Math.random() * 300 + 50;
-  
-  if (persistedState && persistedState.x !== undefined && persistedState.y !== undefined) {
-      startX = persistedState.x;
-      startY = persistedState.y;
-      // console.log(`Restored ${playerName} to ${startX},${startY}`);
-  }
-  
-  const lastMove = { time: 0, x: startX, y: startY };
-  
-  // 5. Init Player Runtime State
+  // Init player
   room.players[playerId] = {
     id: playerId,
     name: playerName,
     color: playerColor,
-    x: startX,
-    y: startY,
-    cell: getCellKey(startX, startY),
+    x: lastMove.x,
+    y: lastMove.y,
+    cell: getCellKey(lastMove.x, lastMove.y),
     ts: Date.now(),
-    dirty: true 
+    dirty: true // Mark for delta sync
   };
   
-  // Save initial state to persistence (ensure record exists)
-  persistence.updatePlayerState(playerKey, {
-      roomId,
-      name: playerName,
-      color: playerColor,
-      x: startX,
-      y: startY,
-      ts: Date.now()
-  });
-
   addToCell(room, playerId, room.players[playerId].cell);
 
-  // 6. Send Snapshot
+  // Send initial snapshot
   ws.send(JSON.stringify({ 
       type: 'snapshot', 
       proto: 2,
       roomId,
       you: playerId,
-      playerKey, // Send back so client can store it if they generated it? 
-                 // Actually client usually sends it. But helpful for debug.
       players: room.players,
       ts: Date.now()
   }));
@@ -151,7 +96,12 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (message) => {
     try {
       const now = Date.now();
-      if (now - lastMove.time < MOVE_THROTTLE_MS) return;
+      
+      // 1. Frequency Check
+      if (now - lastMove.time < MOVE_THROTTLE_MS) {
+          // metrics.violationCount++; // Too strict for some clients
+          return;
+      }
 
       const data = JSON.parse(message);
       
@@ -161,16 +111,20 @@ wss.on('connection', (ws, req) => {
             const newX = parseFloat(data.x);
             const newY = parseFloat(data.y);
 
+            // 2. Bound Check
             if (newX < 0 || newX > WORLD_WIDTH || newY < 0 || newY > WORLD_HEIGHT) {
                 metrics.violationCount++;
                 return; 
             }
+
+            // 3. Speed Check (Simple distance check)
             const dist = Math.sqrt(Math.pow(newX - player.x, 2) + Math.pow(newY - player.y, 2));
-            if (dist > MAX_SPEED * 5) {
+            if (dist > MAX_SPEED * 5) { // *5 buffer for lag spikes/jitters
                 metrics.violationCount++;
-                return; 
+                return; // Teleport hacking?
             }
 
+            // AOI Update
             const newCell = getCellKey(newX, newY);
             if (newCell !== player.cell) {
                 removeFromCell(room, playerId, player.cell);
@@ -178,19 +132,13 @@ wss.on('connection', (ws, req) => {
                 player.cell = newCell;
             }
 
+            // Update state
             player.x = newX;
             player.y = newY;
             player.ts = now;
             player.dirty = true;
             
             lastMove.time = now;
-            
-            // Persist (throttled)
-            persistence.updatePlayerState(playerKey, {
-                x: newX,
-                y: newY,
-                ts: now
-            });
         }
       }
     } catch (e) {
@@ -203,6 +151,9 @@ wss.on('connection', (ws, req) => {
         const p = rooms[roomId].players[playerId];
         removeFromCell(room, playerId, p.cell);
         
+        // Mark as removed for delta sync (we keep it briefly or handle via explicit 'removes' list in tick)
+        // For simplicity in this loop, we just delete and rely on periodic snapshot or client timeout
+        // Better: add to a 'removed' list for one tick.
         if (!rooms[roomId].removedPlayers) rooms[roomId].removedPlayers = [];
         rooms[roomId].removedPlayers.push(playerId);
         
@@ -210,6 +161,7 @@ wss.on('connection', (ws, req) => {
         
         if (playerName.startsWith('Bot-')) metrics.botCount--;
 
+        // If room empty
         if (Object.keys(rooms[roomId].players).length === 0) {
             clearInterval(rooms[roomId].tickInterval);
             delete rooms[roomId];
@@ -240,6 +192,7 @@ function getNearbyPlayers(room, cellKey) {
     if (!cellKey) return [];
     const [cx, cy] = cellKey.split(',').map(Number);
     let pids = [];
+    
     for (let x = cx - 1; x <= cx + 1; x++) {
         for (let y = cy - 1; y <= cy + 1; y++) {
             const k = `${x},${y}`;
@@ -258,31 +211,48 @@ function tickRoom(roomId) {
   const now = Date.now();
   const isSnapshotTick = (now - room.lastSnapshotTime > SNAPSHOT_INTERVAL_MS);
   
+  // Gather changed players (upserts)
   const upserts = [];
   Object.values(room.players).forEach(p => {
       if (p.dirty || isSnapshotTick) {
           upserts.push(p);
+          // Don't clear dirty yet, need to send to everyone relevant
       }
   });
 
   const removes = room.removedPlayers || [];
 
+  // If nothing happened and not snapshot time, skip broadcast
   if (upserts.length === 0 && removes.length === 0 && !isSnapshotTick) {
       return; 
   }
 
   metrics.broadcastCount++;
 
+  // Broadcast
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN && client.roomId === roomId) {
+        
+        // Find relevant players for this client (AOI)
         const myPlayer = room.players[client.playerId];
-        if (!myPlayer) return; 
+        
+        if (!myPlayer) return; // Should not happen if sync
 
+        // AOI Filtering
+        // Get all players in 3x3 grid around me
         const nearbyPids = getNearbyPlayers(room, myPlayer.cell);
+        
+        // Filter upserts to only those nearby
         const visibleUpserts = upserts.filter(p => nearbyPids.includes(p.id));
         
+        // We also need to send updates for players that might have JUST left my AOI? 
+        // For simplicity: We trust client to interpolation/timeout, OR we send 'removes' for those who left AOI.
+        // Current Step 2 req: "九宫格" simple.
+        
+        // Construct Message
         let msg = null;
         if (isSnapshotTick) {
+            // Snapshot sends ALL nearby players, ignoring dirty flag
             const allNearby = nearbyPids.map(pid => room.players[pid]).filter(p => p);
             msg = JSON.stringify({
                 type: 'snapshot',
@@ -308,8 +278,10 @@ function tickRoom(roomId) {
     }
   });
 
+  // Cleanup Dirty Flags & Removes
   Object.values(room.players).forEach(p => p.dirty = false);
   room.removedPlayers = [];
+  
   if (isSnapshotTick) room.lastSnapshotTime = now;
 }
 

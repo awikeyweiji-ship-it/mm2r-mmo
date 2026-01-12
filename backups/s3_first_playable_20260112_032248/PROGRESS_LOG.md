@@ -59,10 +59,20 @@
 ## 20260111_143956 - W1_web_finalize 
 - 状态：W1_web_finalize 通过
 - 核心修复：彻底重写客户端URL发现逻辑，强制使用Uri.base推导后端地址，解决Flutter Web端回落localhost问题。
+- 验证：自动化双客户端交互测试通过。
 
-## 20260111_163000 - S3_first_playable + visual_proof
-- 状态：完成。实现了 10 秒爽点（传送门）及程序内视觉证据导出逻辑。
-- 10秒爽点：在 (400, 400) 处增加黄色传送门，进入后触发瞬移回起点并显示 UI 提示。
-- 视觉证据：添加 RepaintBoundary 并在启动 3 秒后自动触发 Base64 截图导出（输出见 logs/s3_flutter_run.log）。
-- 变更文件：lib/main.dart
-- 备份：backups/s3_first_playable_20260112_032000.tar.gz
+## 20260111_150000 - S1_visual_true_mmo
+- 状态：完成。实现了真实可视化同屏移动 + 最小观感（插值/节流/名字标签）。
+- 广播节流：Server端实现10Hz Tick广播，每10秒输出统计。
+- 客户端插值：Client端实现last->target lerp线性插值，移动平滑。
+
+## 20260111_153000 - S2_netcore_scalable
+- 状态：完成。实现了权威校验 + 限频 + AOI 网格 + 增量(delta)同步 + bot 压测脚本。
+- 服务器改造：AOI 九宫格广播，Delta Sync 增量同步，速度/频率边界检查。
+
+## 20260111_160000 - W2_persistence_min
+- 状态：完成。实现了“最小持久化（文件快照）”。
+- 核心功能：玩家下线再上线（通过 playerKey）可恢复位置、名称、颜色和房间。
+- 存储实现：server/data/world_state.json，采用原子写 + 1.5s 节流防刷 IO。
+- 验证：w2_persistence_test.js 自动化测试通过（Client 1 移动，Client 2 登录可见恢复位置）。
+- 兼容性：保持 S2 的 AOI/delta 逻辑不回退。
