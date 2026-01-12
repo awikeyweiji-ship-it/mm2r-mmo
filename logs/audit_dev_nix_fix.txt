@@ -1,3 +1,4 @@
+Web and Android previews configured in .idx/dev.nix. Removed redundant backend preview entry.
 { pkgs, ... }: {
   channel = "unstable";
 

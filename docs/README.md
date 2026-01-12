@@ -27,6 +27,7 @@
 本项目已接入 Project IDX 的 Previews 功能。
 
 **注意：如果预览没有自动刷新，请执行 Command Palette -> "Project IDX: Hard Restart"。**
+**如果重启后预览标签消失，请点击 IDE 右下角的 "Rebuild Environment" 按钮或通过命令面板执行重建。**
 
 ### 1. 打开 Previews 面板
 - 在 IDE 界面顶部 Tab 栏寻找 **"Previews"** 标签。
