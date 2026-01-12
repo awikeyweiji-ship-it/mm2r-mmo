@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const persistence = require('./persistence');
 
 const app = express();
@@ -26,6 +28,41 @@ const CELL_SIZE = 200; // AOI cell size
 const MAX_SPEED = 20; 
 const WORLD_WIDTH = 5000;
 const WORLD_HEIGHT = 5000;
+
+// Load World Objects with Fallback Strategy
+let worldData = { portals: [], npcs: [], pickups: [] };
+
+function loadWorldData() {
+    // 1. Try Generated (R1.2A)
+    try {
+        const genPath = path.join(__dirname, '../../contentpacks/poc/world/generated/world_objects.json');
+        if (fs.existsSync(genPath)) {
+            const data = JSON.parse(fs.readFileSync(genPath, 'utf8'));
+            if (data.portals && data.portals.length > 0) {
+                 worldData = data;
+                 console.log('[World] Using GENERATED objects from:', genPath);
+                 return;
+            }
+        }
+    } catch (e) {
+        console.warn('[World] Failed to load generated objects:', e.message);
+    }
+
+    // 2. Fallback to Handcrafted (R1.1)
+    try {
+        const dataPath = path.join(__dirname, '../../contentpacks/poc/world/world_objects.json');
+        if (fs.existsSync(dataPath)) {
+            worldData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+            console.log('[World] Using HANDCRAFTED objects from:', dataPath);
+        } else {
+            console.warn('[World] No world_objects.json found, using empty defaults.');
+        }
+    } catch (e) {
+        console.error('[World] Failed to load world objects:', e);
+    }
+}
+
+loadWorldData();
 
 let metrics = {
     broadcastCount: 0,
@@ -85,12 +122,29 @@ wss.on('connection', (ws, req) => {
       objectRemoves: [] // Track removed objects for delta
     };
     
-    // Init default world objects for this room
-    // S4: 1 Pickup, 1 NPC
-    rooms[roomId].objects.push({ id: 'pickup_1', type: 'pickup', x: 400, y: 400, active: true });
-    rooms[roomId].objects.push({ id: 'npc_1', type: 'npc', x: 600, y: 600 });
+    // Init world objects from loaded JSON
+    if (worldData.pickups) {
+        worldData.pickups.forEach(p => rooms[roomId].objects.push({ ...p, active: true }));
+    }
+    if (worldData.npcs) {
+        worldData.npcs.forEach(n => rooms[roomId].objects.push({ ...n }));
+    }
+    // Portals are static but can be in objects if needed for server logic.
+    // Assuming server just passes them or ignores them for now if only client needs to render.
+    // BUT for consistency, let's include them so client gets state?
+    // Portals usually don't have "state" like pickups, but let's add them.
+    if (worldData.portals) {
+         worldData.portals.forEach(p => rooms[roomId].objects.push({ ...p }));
+    }
 
-    console.log(`Created room: ${roomId} with objects`);
+    // If no JSON loaded/empty, fallback to hardcoded for safety
+    if (rooms[roomId].objects.length === 0) {
+        rooms[roomId].objects.push({ id: 'pickup_1', type: 'pickup', x: 400, y: 400, active: true });
+        rooms[roomId].objects.push({ id: 'npc_1', type: 'npc', x: 600, y: 600 });
+        console.log("Using fallback objects for room");
+    }
+
+    console.log(`Created room: ${roomId} with ${rooms[roomId].objects.length} objects`);
     rooms[roomId].tickInterval = setInterval(() => {
         tickRoom(roomId);
     }, 1000 / TICK_RATE);
@@ -196,10 +250,6 @@ wss.on('connection', (ws, req) => {
                         obj.active = false;
                         if (!room.objectRemoves) room.objectRemoves = [];
                         room.objectRemoves.push(obj.id);
-                        
-                        // Notify this player specifically they got it? 
-                        // Or just let client see it disappear. 
-                        // Ideally we send an 'event' packet, but for now visual disappear is enough S4 requirement.
                     }
                 }
             });

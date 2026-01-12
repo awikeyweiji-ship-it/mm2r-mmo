@@ -1,0 +1,11 @@
+{
+    "portals": [
+      { "id": "portal_1", "type": "portal", "x": 600, "y": 400, "width": 80, "height": 80, "target": { "x": 100, "y": 100 }, "label": "Spawn Portal Moved" }
+    ],
+    "npcs": [
+      { "id": "npc_1", "type": "npc", "x": 600, "y": 600, "name": "Quest Giver", "dialog": "Please bring me the item." }
+    ],
+    "pickups": [
+      { "id": "pickup_1", "type": "pickup", "x": 400, "y": 400, "itemId": "item_001", "label": "Quest Item" }
+    ]
+  }

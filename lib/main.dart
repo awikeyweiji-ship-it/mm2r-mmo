@@ -74,12 +74,22 @@ class Player {
 
 class WorldObject {
   final String id;
-  final String type; // 'pickup', 'npc'
+  final String type; // 'pickup', 'npc', 'portal'
   final double x;
   final double y;
+  final String? label;
+  final Point<double>? target; // for portal
   bool active;
 
-  WorldObject({required this.id, required this.type, required this.x, required this.y, this.active = true});
+  WorldObject({
+      required this.id, 
+      required this.type, 
+      required this.x, 
+      required this.y, 
+      this.active = true,
+      this.label,
+      this.target
+  });
 }
 
 class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStateMixin {
@@ -88,15 +98,13 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
   Point<double> _localPos = const Point(100.0, 100.0);
   final Map<String, Player> _remotePlayers = {};
   
-  // S4 Quest State
+  // S4 Quest State & Data Driven Objects
   final Map<String, WorldObject> _worldObjects = {};
   int _inventoryCount = 0;
   int _questsCompleted = 0;
   bool _showNpcDialog = false;
+  String _npcDialogText = "Hello!";
   
-  // S3 Portal Config
-  final Rect _portalRect = const Rect.fromLTWH(400, 400, 80, 80);
-  final Point<double> _portalDest = const Point(100.0, 100.0);
   String _statusMsg = "Welcome! Find the Green Pickup to start quest.";
   
   // BUILD_ID from dart-define
@@ -107,6 +115,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
     
+    // Load World Objects from JSON Asset
+    _loadWorldObjects();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final config = Provider.of<AppConfig>(context, listen: false);
       config.discoverBackend();
@@ -115,6 +126,58 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
       // Auto-screenshot proof after 3s
       Future.delayed(const Duration(seconds: 3), _captureProof);
     });
+  }
+
+  Future<void> _loadWorldObjects() async {
+      try {
+          final String response = await rootBundle.loadString('assets/poc/world_objects.json');
+          final data = json.decode(response);
+          
+          setState(() {
+              _worldObjects.clear();
+              // Portals
+              if (data['portals'] != null) {
+                  for (var p in data['portals']) {
+                      _worldObjects[p['id']] = WorldObject(
+                          id: p['id'],
+                          type: 'portal',
+                          x: (p['x'] as num).toDouble(),
+                          y: (p['y'] as num).toDouble(),
+                          label: p['label'],
+                          target: Point((p['target']['x'] as num).toDouble(), (p['target']['y'] as num).toDouble())
+                      );
+                  }
+              }
+              // NPCs
+              if (data['npcs'] != null) {
+                  for (var n in data['npcs']) {
+                      _worldObjects[n['id']] = WorldObject(
+                          id: n['id'],
+                          type: 'npc',
+                          x: (n['x'] as num).toDouble(),
+                          y: (n['y'] as num).toDouble(),
+                          label: n['name']
+                      );
+                  }
+              }
+              // Pickups
+              if (data['pickups'] != null) {
+                  for (var p in data['pickups']) {
+                      _worldObjects[p['id']] = WorldObject(
+                          id: p['id'],
+                          type: 'pickup',
+                          x: (p['x'] as num).toDouble(),
+                          y: (p['y'] as num).toDouble(),
+                          label: p['label']
+                      );
+                  }
+              }
+          });
+          print("Loaded ${_worldObjects.length} objects from JSON asset.");
+      } catch (e) {
+          print("Error loading world_objects.json: $e");
+          // Fallback if needed, but we expect asset to be there
+      }
   }
 
   Future<void> _captureProof() async {
@@ -155,17 +218,23 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
   }
   
   void _moveLocalPlayer(double x, double y) {
-      // S3 Portal Logic
       Point<double> nextPos = Point(x, y);
-      if (_portalRect.contains(Offset(x, y))) {
-          nextPos = _portalDest;
-          setState(() {
-              _statusMsg = "✨ Portal Activated! Teleported to Spawn ✨";
-          });
-          Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) setState(() => _statusMsg = "Find NPC (Blue) to deliver items.");
-          });
-      }
+      
+      // Client-side Portal Trigger (Data Driven)
+      _worldObjects.forEach((id, obj) {
+          if (obj.type == 'portal' && obj.target != null) {
+              // Simple rect check around center
+              if (x >= obj.x && x <= obj.x + 80 && y >= obj.y && y <= obj.y + 80) {
+                  nextPos = obj.target!;
+                  setState(() {
+                      _statusMsg = "✨ Portal ${obj.label} Activated! ✨";
+                  });
+                  Future.delayed(const Duration(seconds: 2), () {
+                      if (mounted) setState(() => _statusMsg = "Find NPC to deliver items.");
+                  });
+              }
+          }
+      });
 
       // Check proximity to NPC
       bool nearNpc = false;
@@ -237,18 +306,28 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
          });
          _remotePlayers.removeWhere((id, _) => !visibleIds.contains(id));
          
-         // S4 Handle Objects
+         // S4 Handle Objects (Server Authority on STATE, Client on DEFINITION)
+         // We merge server state (active/inactive) into our local definition
          if (data['objects'] != null) {
-             final objs = data['objects'] as List<dynamic>;
-             _worldObjects.clear();
-             for (var o in objs) {
-                 _worldObjects[o['id']] = WorldObject(
-                     id: o['id'],
-                     type: o['type'],
-                     x: (o['x'] as num).toDouble(),
-                     y: (o['y'] as num).toDouble(),
-                     active: o['active'] ?? true
-                 );
+             final serverObjs = data['objects'] as List<dynamic>;
+             for (var sObj in serverObjs) {
+                 final id = sObj['id'];
+                 if (_worldObjects.containsKey(id)) {
+                     _worldObjects[id]!.active = sObj['active'] ?? true;
+                 } else {
+                     // Server sent an object we don't have in JSON? Add it dynamically?
+                     // For now, let's respect server if it sends coords
+                     if (sObj['x'] != null && sObj['y'] != null) {
+                        _worldObjects[id] = WorldObject(
+                            id: id,
+                            type: sObj['type'],
+                            x: (sObj['x'] as num).toDouble(),
+                            y: (sObj['y'] as num).toDouble(),
+                            active: sObj['active'] ?? true,
+                            label: "DynObj"
+                        );
+                     }
+                 }
              }
          }
 
@@ -275,55 +354,30 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                   }
               }
           }
-          // S4 Object Removes
-          if (data['objRemoves'] != null) {
-              for (var oid in data['objRemoves']) {
-                  _worldObjects.remove(oid);
-                  // Heuristic: if a pickup disappeared near me, I probably picked it up?
-                  // Or server sends specific event. Since server does simple logic:
-                  // For now, client doesn't know WHO picked it up unless server says so.
-                  // BUT, if I'm very close to it when it disappears, let's assume I got it for UI feedback.
-                  // Server should ideally be authoritative on inventory. 
-                  // For S4 requirements "Step 2: Pickup (UI prompt + Count +1)", we can cheat slightly:
-                  // If *I* am close to the removed object, increment my count.
-                  
-                  // In a real game, server sends "InventoryUpdate" packet.
-                  // Here we rely on "disappear near me" -> "I got it".
-                  
-                  // Wait, actually better: Server removes it from world.
-                  // Let's do client-side prediction for pickup:
-                  // Actually, let's just check distance to removed object.
-                  // We don't have the object in _worldObjects anymore if we just removed it? 
-                  // Wait, we removed it from map line above. 
-                  // We need to look at it before removing? No, we need to know where it was.
-                  // We can't know where it was if we removed it. 
-                  // So let's check BEFORE removing.
-                  // Wait, we can't because we iterate objRemoves.
-                  
-                  // Let's just blindly trust server for disappearance, but for INVENTORY, 
-                  // we need a trigger.
-                  // Let's scan current objects for the ID before removing.
-              }
-          }
-          
-          // Better logic for inventory update:
-          // The `objRemoves` list contains IDs. 
-          // We need to check if *we* were the one who triggered it.
-          // Since we don't have a specific event, let's assume if we are < 50 units from a removed pickup, we got it.
+          // S4 Object Removes (Server says it's gone/inactive)
           if (data['objRemoves'] != null) {
               for (var oid in data['objRemoves']) {
                   if (_worldObjects.containsKey(oid)) {
                       final obj = _worldObjects[oid]!;
-                      if (obj.type == 'pickup') {
+                      
+                      // Check for pickup attribution (Client Prediction/Feedback)
+                      if (obj.type == 'pickup' && obj.active) {
                           double dist = sqrt(pow(obj.x - _localPos.x, 2) + pow(obj.y - _localPos.y, 2));
                           if (dist < 60) {
                               setState(() {
                                   _inventoryCount++;
-                                  _statusMsg = "📦 Picked up item! Go to NPC.";
+                                  _statusMsg = "📦 Picked up ${obj.label ?? 'item'}! Go to NPC.";
                               });
                           }
                       }
-                      _worldObjects.remove(oid);
+                      
+                      setState(() {
+                          obj.active = false; // Mark inactive instead of removing to keep definition? 
+                          // Server logic removes from its list, so snapshot won't have it.
+                          // But delta says remove. 
+                          // If we remove from map, we lose definition.
+                          // Let's just set active=false.
+                      });
                   }
               }
           }
@@ -364,7 +418,6 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                                                 localPos: _localPos,
                                                 remotePlayers: _remotePlayers.values.toList(),
                                                 worldObjects: _worldObjects.values.toList(),
-                                                portalRect: _portalRect,
                                                 now: now,
                                                 myId: config.playerId
                                             ),
@@ -421,9 +474,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                         child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                                const Text("NPC: Quest Giver", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                                const Text("NPC Interaction", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 10),
-                                Text(_inventoryCount > 0 ? "Ah, you found it! Hand it over?" : "Please bring me the item from the Green Zone.", 
+                                Text(_inventoryCount > 0 ? "Ah, you found it! Hand it over?" : "Please find the item.", 
                                     style: const TextStyle(color: Colors.white70), textAlign: TextAlign.center),
                                 const SizedBox(height: 15),
                                 ElevatedButton(
@@ -441,7 +494,6 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
             Positioned(
                 top: 0,
                 left: 0,
-                // right: 0, // don't stretch to right to avoid overlap with inventory
                 child: Consumer<AppConfig>(
                     builder: (context, config, child) {
                         Color statusColor = Colors.grey;
@@ -502,7 +554,6 @@ class WorldPainter extends CustomPainter {
   final Point<double> localPos;
   final List<Player> remotePlayers;
   final List<WorldObject> worldObjects;
-  final Rect portalRect;
   final double now;
   final String? myId;
 
@@ -510,7 +561,6 @@ class WorldPainter extends CustomPainter {
       required this.localPos, 
       required this.remotePlayers, 
       required this.worldObjects,
-      required this.portalRect,
       required this.now,
       this.myId
   });
@@ -528,28 +578,29 @@ class WorldPainter extends CustomPainter {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
     }
 
-    // Draw Portal
-    final portalPaint = Paint()
-      ..color = Colors.yellow.withOpacity(0.3 + 0.2 * sin(now/200))
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(portalRect, portalPaint);
-    canvas.drawRect(portalRect, Paint()..color = Colors.yellow..style = PaintingStyle.stroke..strokeWidth = 3);
-    
-    // Portal Label
-    final textPainter = TextPainter(text: TextSpan(text: "PORTAL", style: TextStyle(color: Colors.yellow, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
-    textPainter.layout();
-    textPainter.paint(canvas, Offset(portalRect.center.dx - textPainter.width/2, portalRect.center.dy - textPainter.height/2));
-
     // Draw Objects
     for (final obj in worldObjects) {
-        if (!obj.active) continue;
-        if (obj.type == 'pickup') {
+        if (!obj.active && obj.type != 'portal') continue; // Portals always visible usually? Or only active ones?
+        
+        if (obj.type == 'portal') {
+            final portalPaint = Paint()
+              ..color = Colors.yellow.withOpacity(0.3 + 0.2 * sin(now/200))
+              ..style = PaintingStyle.fill;
+            final rect = Rect.fromLTWH(obj.x, obj.y, 80, 80);
+            canvas.drawRect(rect, portalPaint);
+            canvas.drawRect(rect, Paint()..color = Colors.yellow..style = PaintingStyle.stroke..strokeWidth = 3);
+            
+            final tp = TextPainter(text: TextSpan(text: obj.label ?? "PORTAL", style: TextStyle(color: Colors.yellow, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
+            tp.layout();
+            tp.paint(canvas, Offset(rect.center.dx - tp.width/2, rect.center.dy - tp.height/2));
+
+        } else if (obj.type == 'pickup') {
             final paint = Paint()..color = Colors.greenAccent..style = PaintingStyle.fill;
             // Pulsing effect
             double radius = 10 + 2 * sin(now/150);
             canvas.drawCircle(Offset(obj.x, obj.y), radius, paint);
             
-            final tp = TextPainter(text: TextSpan(text: "ITEM", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
+            final tp = TextPainter(text: TextSpan(text: obj.label ?? "ITEM", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
             tp.layout();
             tp.paint(canvas, Offset(obj.x - tp.width/2, obj.y + 15));
 
@@ -557,7 +608,7 @@ class WorldPainter extends CustomPainter {
              final paint = Paint()..color = Colors.cyan..style = PaintingStyle.fill;
              canvas.drawRect(Rect.fromCenter(center: Offset(obj.x, obj.y), width: 30, height: 40), paint);
              
-             final tp = TextPainter(text: TextSpan(text: "NPC", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 12, backgroundColor: Colors.black45)), textDirection: TextDirection.ltr);
+             final tp = TextPainter(text: TextSpan(text: obj.label ?? "NPC", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 12, backgroundColor: Colors.black45)), textDirection: TextDirection.ltr);
              tp.layout();
              tp.paint(canvas, Offset(obj.x - tp.width/2, obj.y - 30));
         }

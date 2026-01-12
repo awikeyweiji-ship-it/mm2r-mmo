@@ -1,0 +1,19 @@
+{
+  "portals": [
+    {
+      "id": "portal_gen_1",
+      "type": "portal",
+      "x": 800,
+      "y": 800,
+      "width": 80,
+      "height": 80,
+      "target": {
+        "x": 200,
+        "y": 200
+      },
+      "label": "Generated Portal 1"
+    }
+  ],
+  "npcs": [],
+  "pickups": []
+}
