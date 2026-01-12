@@ -322,7 +322,7 @@ class WorldPainter extends CustomPainter {
     canvas.drawRect(portalRect, Paint()..color = Colors.yellow..style = PaintingStyle.stroke..strokeWidth = 3);
     
     // Portal Label
-    const textPainter = TextPainter(text: TextSpan(text: "PORTAL", style: TextStyle(color: Colors.yellow, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
+    final textPainter = TextPainter(text: TextSpan(text: "PORTAL", style: TextStyle(color: Colors.yellow, fontWeight: FontWeight.bold, fontSize: 10)), textDirection: TextDirection.ltr);
     textPainter.layout();
     textPainter.paint(canvas, Offset(portalRect.center.dx - textPainter.width/2, portalRect.center.dy - textPainter.height/2));
 

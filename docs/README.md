@@ -6,14 +6,17 @@
 
 本项目已接入 Project IDX 的 Previews 功能。你不需要手动在终端跑 `flutter run`，IDX 会自动为你准备好预览入口。
 
+**注意：如果这是你第一次打开或刚修改完配置，请执行 Command Palette -> "Project IDX: Hard Restart" 以加载预览配置。**
+
 ### 1. 打开 Previews 面板
 - 在 IDE 界面顶部 Tab 栏寻找 **"Previews"** 标签。
 - 或者点击 IDE 右侧边栏的 **"Previews"** 图标。
 
 ### 2. 选择预览实例
-在 Previews 面板中，你会看到两个选项：
-- **flutter_web**: 真正的游戏画面预览。IDX 会自动编译并展示 Flutter Web 界面。
-- **backend**: 后端服务的健康检查预览（默认 8080）。
+在 Previews 面板中，你会看到以下选项（标签名可能为 "Web", "Android", "Backend"）：
+- **web (Flutter Web)**: 真正的游戏画面预览。IDX 会自动编译并展示 Flutter Web 界面。
+- **backend (8080)**: 后端服务的健康检查预览。
+- **android**: Android 模拟器预览（如环境支持）。
 
 ### 3. 连接后端
 - **自动连接**：默认情况下，App 会尝试连接到当前的后端。

@@ -67,3 +67,5 @@
 - 变更文件：lib/main.dart
 - 备份：backups/s3_first_playable_20260112_032000.tar.gz
 - [2026-01-12 03:29] Setup IDX Previews for Flutter Web and Backend. Updated docs/README.md.
+- [2026-01-12 03:30] Android Emulator check skipped (SDK missing). Recommended Web Preview.
+- [2026-01-12 03:36] IDX Previews configured (Web, Android, Backend). Added instructions to README.

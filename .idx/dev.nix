@@ -1,5 +1,5 @@
 { pkgs, ... }: {
-  channel = "stable-23.11";
+  channel = "unstable";
 
   packages = [
     pkgs.flutter
@@ -24,14 +24,13 @@
         flutter-pub-get = "flutter pub get";
       };
       onStart = {
-        # 可以选择在这里启动后端，或者放在 previews 里
+        # Backend runs in preview now
       };
     };
 
     previews = {
       enable = true;
       previews = {
-        # 1. 初始的 Web 界面
         web = {
           command = [
             "flutter"
@@ -46,7 +45,6 @@
           ];
           manager = "flutter";
         };
-        # 2. 初始的 Android 界面 (需要 IDX 环境支持 Android Emulator)
         android = {
           command = [
             "flutter"
@@ -59,7 +57,6 @@
           ];
           manager = "flutter";
         };
-        # 3. 后端服务
         backend = {
           command = [
             "bash"
@@ -69,6 +66,7 @@
           env = {
             PORT = "8080";
           };
+          manager = "web";
         };
       };
     };
