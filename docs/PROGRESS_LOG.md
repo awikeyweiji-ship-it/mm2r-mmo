@@ -66,3 +66,4 @@
 - 视觉证据：添加 RepaintBoundary 并在启动 3 秒后自动触发 Base64 截图导出（输出见 logs/s3_flutter_run.log）。
 - 变更文件：lib/main.dart
 - 备份：backups/s3_first_playable_20260112_032000.tar.gz
+- [2026-01-12 03:29] Setup IDX Previews for Flutter Web and Backend. Updated docs/README.md.

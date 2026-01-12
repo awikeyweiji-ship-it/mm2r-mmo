@@ -194,7 +194,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
          _remotePlayers.removeWhere((id, _) => !visibleIds.contains(id));
       } else if (type == 'delta') {
           if (data['removes'] != null) {
-              for (var id in data['removes']) _remotePlayers.remove(id);
+              for (var id in data['removes']) {
+                _remotePlayers.remove(id);
+              }
           }
           if (data['upserts'] != null) {
               for (var playerData in data['upserts']) {
@@ -305,8 +307,12 @@ class WorldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()..color = Colors.white10..strokeWidth = 1;
-    for (double i = 0; i < size.width; i += 50) canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
-    for (double i = 0; i < size.height; i += 50) canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
+    for (double i = 0; i < size.width; i += 50) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
+    }
+    for (double i = 0; i < size.height; i += 50) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
+    }
 
     // Draw Portal
     final portalPaint = Paint()
@@ -320,7 +326,9 @@ class WorldPainter extends CustomPainter {
     textPainter.layout();
     textPainter.paint(canvas, Offset(portalRect.center.dx - textPainter.width/2, portalRect.center.dy - textPainter.height/2));
 
-    for (final player in remotePlayers) _drawPlayer(canvas, player.getLerpPosition(now), player.color, player.name);
+    for (final player in remotePlayers) {
+      _drawPlayer(canvas, player.getLerpPosition(now), player.color, player.name);
+    }
     _drawPlayer(canvas, localPos, Colors.blue, "Me (${myId?.substring(0, 4) ?? '?'})");
   }
 

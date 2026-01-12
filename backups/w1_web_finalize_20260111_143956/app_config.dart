@@ -107,7 +107,7 @@ class AppConfig extends ChangeNotifier {
       _wsStatus = 'Failed: No base URL';
       return;
     }
-    final wsUrl = _baseUrl!.replaceFirst(RegExp(r'^http'), 'ws') + '/ws';
+    final wsUrl = '${_baseUrl!.replaceFirst(RegExp(r'^http'), 'ws')}/ws';
     _lastWsUrl = wsUrl;
     notifyListeners();
 

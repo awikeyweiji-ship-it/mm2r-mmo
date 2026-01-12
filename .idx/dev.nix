@@ -1,5 +1,5 @@
 { pkgs, ... }: {
-  channel = "stable-23.11"; # or "unstable"
+  channel = "stable-23.11";
 
   packages = [
     pkgs.flutter
@@ -8,37 +8,35 @@
   ];
 
   env = {
-    # Environment variables if needed
+    BACKEND_PORT = "8080";
   };
 
   idx = {
-    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id".
     extensions = [
       "dart-code.dart-code"
       "dart-code.flutter"
       "ms-vscode.vscode-typescript-next"
     ];
 
-    # Workspace lifecycle hooks
     workspace = {
-      # Runs when a workspace is first created
       onCreate = {
-        # Example: install JS dependencies
-        # npm-install = "npm install";
+        npm-install = "cd server && npm install";
+        flutter-pub-get = "flutter pub get";
       };
-      # Runs when the workspace is (re)started
       onStart = {
-        # Example: start a background task
+        # 可以选择在这里启动后端，或者放在 previews 里
       };
     };
 
     previews = {
       enable = true;
       previews = {
+        # 1. 初始的 Web 界面
         web = {
           command = [
             "flutter"
             "run"
+            "--machine"
             "-d"
             "web-server"
             "--web-hostname"
@@ -48,11 +46,25 @@
           ];
           manager = "flutter";
         };
+        # 2. 初始的 Android 界面 (需要 IDX 环境支持 Android Emulator)
+        android = {
+          command = [
+            "flutter"
+            "run"
+            "--machine"
+            "-d"
+            "android"
+            "-d"
+            "emulator-5554"
+          ];
+          manager = "flutter";
+        };
+        # 3. 后端服务
         backend = {
           command = [
             "bash"
             "-c"
-            "cd server && npm install && npm start"
+            "cd server && npm install && HOST=0.0.0.0 PORT=8080 node src/index.js"
           ];
           env = {
             PORT = "8080";

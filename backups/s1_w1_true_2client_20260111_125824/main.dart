@@ -123,7 +123,7 @@ class _WorldPageState extends State<WorldPage>
   WebSocketChannel? _channel;
   Ticker? _ticker;
 
-  Map<String, Player> _players = {};
+  final Map<String, Player> _players = {};
   Player? _localPlayer;
 
   @override

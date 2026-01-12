@@ -126,7 +126,7 @@ class _WorldPageState extends State<WorldPage>
   WebSocketChannel? _channel;
   Ticker? _ticker;
 
-  Map<String, Player> _players = {};
+  final Map<String, Player> _players = {};
   Player? _localPlayer;
 
   String _healthStatus = 'Pending';
@@ -189,42 +189,47 @@ class _WorldPageState extends State<WorldPage>
           .get(healthUri)
           .timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
-        if (mounted)
+        if (mounted) {
           setState(() {
             _healthStatus = '✅ OK';
             _healthColor = Colors.green;
           });
+        }
       } else {
-        if (mounted)
+        if (mounted) {
           setState(() {
             _healthStatus = '⚠️ FAIL (${response.statusCode})';
             _healthColor = Colors.red;
           });
+        }
         return; // Stop if health check fails
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _healthStatus = '⚠️ FAIL (No connection)';
           _healthColor = Colors.red;
         });
+      }
       return; // Stop if health check fails
     }
 
     // 3. WebSocket Connection
-    if (mounted)
+    if (mounted) {
       setState(() {
         _wsStatus = 'Connecting...';
       });
+    }
     _roomId = await AppConfig.getRoomId();
     final wsUrl = await AppConfig.deriveWsUrl();
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      if (mounted)
+      if (mounted) {
         setState(() {
           _wsStatus = 'Connected, waiting for welcome...';
         });
+      }
 
       _channel?.stream.listen(
         (message) {
@@ -244,26 +249,29 @@ class _WorldPageState extends State<WorldPage>
           });
         },
         onError: (error) {
-          if (mounted)
+          if (mounted) {
             setState(() {
               _wsStatus = '⚠️ Error: $error';
               _wsColor = Colors.red;
             });
+          }
         },
         onDone: () {
-          if (mounted)
+          if (mounted) {
             setState(() {
               _wsStatus = '⚠️ Disconnected';
               _wsColor = Colors.red;
             });
+          }
         },
       );
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _wsStatus = '⚠️ FAIL (Cannot connect)';
           _wsColor = Colors.red;
         });
+      }
     }
   }
 
