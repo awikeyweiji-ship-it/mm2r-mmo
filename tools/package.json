@@ -1,0 +1,11 @@
+{
+  "name": "web-dev-proxy",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node web_dev_proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "http-proxy-middleware": "^3.0.0"
+  }
+}

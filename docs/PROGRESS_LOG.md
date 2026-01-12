@@ -96,3 +96,18 @@
 - WS connection force-directed to backend 8080 wss://
 - Web Preview Command Updated: Force Rebuild + Timestamp + No-Cache + No-PWA
 - UI now displays BUILD_ID for version verification
+
+## 2026-01-12 - S3.3 HTTP Proxy Fix
+- **Problem**: Health check failed due to CORS (browser -> 8080).
+- **Solution**: Implemented Node.js proxy (tools/web_dev_proxy.js) in web preview.
+  - Proxies /api/* to http://127.0.0.1:8080/* (stripping /api prefix).
+  - Serves static build/web.
+- **Changes**:
+  - Created tools/web_dev_proxy.js and tools/package.json.
+  - Updated .idx/dev.nix to use proxy script for web preview.
+  - Updated lib/app_config.dart:
+    - API/Health uses Same Origin /api/health (proxied).
+    - WebSocket uses Direct 8080 connection (ws://8080-...).
+- **Result**:
+  - Health Check: OK (/api/health -> 8080/health).
+  - WS Connection: OK (Direct).

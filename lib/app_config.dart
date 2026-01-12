@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class AppConfig extends ChangeNotifier {
-  String? baseUrl;
+  String? apiBaseUrl; // For HTTP/Health (Proxy)
+  String? wsBaseUrl;  // For WebSocket (Direct 8080)
+  
   String healthStatus = 'Unknown';
   String wsStatus = 'Disconnected';
   String lastHealthUrl = '';
@@ -20,7 +22,7 @@ class AppConfig extends ChangeNotifier {
   final _gameStateController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get gameStateStream => _gameStateController.stream;
 
-  // Robust derivation logic for backend URL
+  // Robust derivation logic for backend URL (Direct 8080)
   String? deriveBackendBaseUrlFromWebOrigin(Uri origin) {
     if (!origin.host.contains('cloudworkstations.dev') && 
         !origin.host.contains('app.goog') && 
@@ -35,7 +37,6 @@ class AppConfig extends ChangeNotifier {
     final prefixMatch = prefixRegex.firstMatch(derivedHost);
     
     if (prefixMatch != null) {
-      // It starts with a port-like prefix
       derivedHost = '8080-${prefixMatch.group(2)}';
     } 
     // Case 2: Infix based (e.g. abc-9000.... -> abc-8080....)
@@ -52,41 +53,6 @@ class AppConfig extends ChangeNotifier {
     }
     
     return '${origin.scheme}://$derivedHost';
-  }
-
-  Future<void> discoverBackend() async {
-    final Uri currentUri = Uri.base;
-    String? detectedBaseUrl;
-
-    // 1. Try to derive 8080 backend from current web origin (9000)
-    detectedBaseUrl = deriveBackendBaseUrlFromWebOrigin(currentUri);
-
-    // 2. Fallback for localhost or unknown env
-    if (detectedBaseUrl == null) {
-        if (currentUri.host == 'localhost' || currentUri.host == '127.0.0.1') {
-            detectedBaseUrl = 'http://localhost:8080';
-        } else {
-            // Fallback to origin if we can't derive, but this is likely wrong for static web hosting
-            detectedBaseUrl = '${currentUri.scheme}://${currentUri.host}';
-            if (currentUri.hasPort && currentUri.port != 80 && currentUri.port != 443) {
-                 detectedBaseUrl += ':${currentUri.port}';
-            }
-        }
-    }
-    
-    // 3. Allow override
-    if (currentUri.queryParameters.containsKey('backend')) {
-        detectedBaseUrl = currentUri.queryParameters['backend']!;
-    }
-
-    baseUrl = detectedBaseUrl;
-    notifyListeners(); // Update UI with candidate URL
-
-    // 4. Verify connectivity
-    await _checkHealth();
-    
-    // 5. Connect WS only if health check passed or we are brave
-    await _connectWs();
   }
 
   String deriveWsUrl(String httpBaseUrl) {
@@ -106,9 +72,41 @@ class AppConfig extends ChangeNotifier {
       return wsUri.toString();
   }
 
+  Future<void> discoverBackend() async {
+    final Uri currentUri = Uri.base;
+    String? directBackendUrl = deriveBackendBaseUrlFromWebOrigin(currentUri);
+
+    if (directBackendUrl != null) {
+        // Preview Environment:
+        // API -> Proxy (Same Origin + /api)
+        apiBaseUrl = '${currentUri.origin}/api';
+        // WS -> Direct Backend (8080)
+        wsBaseUrl = deriveWsUrl(directBackendUrl);
+    } else {
+        // Localhost / Fallback
+        if (currentUri.host == 'localhost' || currentUri.host == '127.0.0.1') {
+            // Assume Proxy on current port, Backend on 8080
+            apiBaseUrl = '${currentUri.origin}/api';
+            wsBaseUrl = 'ws://${currentUri.host}:8080/ws';
+        } else {
+            // Unknown, try direct fallback
+            apiBaseUrl = '${currentUri.origin}/api';
+            wsBaseUrl = deriveWsUrl('${currentUri.scheme}://${currentUri.host}:${currentUri.port}');
+        }
+    }
+
+    notifyListeners();
+
+    // 4. Verify connectivity
+    await _checkHealth();
+    
+    // 5. Connect WS
+    await _connectWs();
+  }
+
   Future<void> _checkHealth() async {
-    if (baseUrl == null) return;
-    lastHealthUrl = '$baseUrl/health';
+    if (apiBaseUrl == null) return;
+    lastHealthUrl = '$apiBaseUrl/health';
     healthStatus = 'Checking...';
     notifyListeners();
     
@@ -127,10 +125,9 @@ class AppConfig extends ChangeNotifier {
   }
 
   Future<void> _connectWs() async {
-    if (baseUrl == null) return;
+    if (wsBaseUrl == null) return;
     
-    String wsBase = deriveWsUrl(baseUrl!);
-    lastWsUrl = '$wsBase?roomId=poc_world&name=player-${DateTime.now().millisecondsSinceEpoch % 1000}';
+    lastWsUrl = '$wsBaseUrl?roomId=poc_world&name=player-${DateTime.now().millisecondsSinceEpoch % 1000}';
 
     try {
       if (ws != null) {
@@ -191,7 +188,7 @@ class AppConfig extends ChangeNotifier {
   }
   
   void retryConnection() {
-      discoverBackend(); // Re-run discovery to be safe, then connect
+      discoverBackend(); 
   }
 
   @override
