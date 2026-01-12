@@ -5,10 +5,12 @@
     pkgs.flutter
     pkgs.dart
     pkgs.nodejs_20
+    pkgs.jdk17
   ];
 
   env = {
     BACKEND_PORT = "8080";
+    JAVA_HOME = "${pkgs.jdk17}/lib/openjdk";
   };
 
   idx = {
