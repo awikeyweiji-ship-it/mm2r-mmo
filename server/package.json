@@ -4,7 +4,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "HOST=0.0.0.0 PORT=8080 node src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "extract:pickups": "node scripts/extract_pickups.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

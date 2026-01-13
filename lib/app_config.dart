@@ -1,86 +1,119 @@
+
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class AppConfig extends ChangeNotifier {
-  String? apiBaseUrl; // For HTTP/Health (Proxy)
-  String? wsBaseUrl;  // For WebSocket (Proxy)
-  
+  String? apiBaseUrl;
+  String? wsBaseUrl;
+
   String healthStatus = 'Unknown';
   String wsStatus = 'Disconnected';
   String lastHealthUrl = '';
   String lastWsUrl = '';
   String lastWsError = '';
   String browserOrigin = Uri.base.origin;
-  
+
   WebSocketChannel? ws;
   String? playerId;
   int playerCount = 0;
-  
+
   final _gameStateController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get gameStateStream => _gameStateController.stream;
+
+  Timer? _healthCheckTimer;
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
 
   Future<void> discoverBackend() async {
     final Uri currentUri = Uri.base;
 
-    // In all environments (web, mobile, desktop), we now assume a proxy is running.
-    // The proxy standardizes the API and WebSocket endpoints.
     apiBaseUrl = '${currentUri.origin}/api';
 
-    // For WebSockets, derive the URL from the page's origin.
-    // The proxy will forward wss://<origin>/ws to ws://127.0.0.1:8080/ws.
     if (kIsWeb) {
-        Uri wsUri = currentUri.replace(
-            scheme: currentUri.scheme == 'https' ? 'wss' : 'ws',
-            path: '/ws',
-        );
-        wsBaseUrl = wsUri.toString();
+      Uri wsUri = currentUri.replace(
+        scheme: currentUri.scheme == 'https' ? 'wss' : 'ws',
+        path: '/ws',
+      );
+      wsBaseUrl = wsUri.toString();
     } else {
-        // For non-web (e.g., Android/iOS testing), assume direct connection for simplicity.
-        // This could be unified later if a proxy is also used for mobile development.
-        wsBaseUrl = 'ws://127.0.0.1:8080/ws'; 
-        apiBaseUrl = 'http://127.0.0.1:8080'; // and api points directly
+      wsBaseUrl = 'ws://127.0.0.1:8080/ws';
+      apiBaseUrl = 'http://127.0.0.1:8080';
     }
 
     notifyListeners();
+    _startHealthChecks();
+    _connectWs();
+  }
 
-    await _checkHealth();
-    await _connectWs();
+  void _startHealthChecks() {
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      _checkHealth();
+    });
   }
 
   Future<void> _checkHealth() async {
     if (apiBaseUrl == null) return;
     lastHealthUrl = '$apiBaseUrl/health';
-    healthStatus = 'Checking...';
-    notifyListeners();
     
+    // Don't spam "Checking..."
+    if(healthStatus != 'OK' && healthStatus != 'Checking...'){
+        healthStatus = 'Checking...';
+        notifyListeners();
+    }
+
     try {
       final response = await http.get(Uri.parse(lastHealthUrl));
       if (response.statusCode == 200) {
-        healthStatus = 'OK';
+        if(healthStatus != 'OK'){
+          healthStatus = 'OK';
+          notifyListeners();
+        }
       } else {
-        healthStatus = 'Fail: ${response.statusCode}';
+        if(healthStatus != 'Fail: ${response.statusCode}'){
+           healthStatus = 'Fail: ${response.statusCode}';
+           notifyListeners();
+        }
       }
     } catch (e) {
-      healthStatus = 'Err: ${e.toString()}';
-      print("Health check failed for $lastHealthUrl: $e");
+      final errorMsg = 'Err: ${e.toString()}';
+      if(healthStatus != errorMsg){
+         healthStatus = errorMsg;
+         notifyListeners();
+      }
     }
-    notifyListeners();
+  }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    if (_reconnectAttempts >= 5) { // Stop after 5 attempts
+        wsStatus = "Reconnect failed";
+        notifyListeners();
+        return;
+    }
+
+    final waitSeconds = min(pow(2, _reconnectAttempts), 2);
+    _reconnectTimer = Timer(Duration(seconds: waitSeconds.toInt()), () {
+      _reconnectAttempts++;
+      wsStatus = "Reconnecting...";
+      notifyListeners();
+      _connectWs();
+    });
   }
 
   Future<void> _connectWs() async {
     if (wsBaseUrl == null) return;
-    
-    // Use a unique name for each connection to test multi-client
+
     lastWsUrl = '$wsBaseUrl?roomId=poc_world&name=player-${DateTime.now().microsecondsSinceEpoch % 10000}';
 
     try {
-      if (ws != null) {
-          ws!.sink.close();
-      }
-      print("Connecting to WS (Same-Origin): $lastWsUrl");
+      ws?.sink.close();
+      
+      print("Connecting to WS: $lastWsUrl");
       ws = WebSocketChannel.connect(Uri.parse(lastWsUrl));
       wsStatus = 'Connecting';
       lastWsError = '';
@@ -88,41 +121,37 @@ class AppConfig extends ChangeNotifier {
 
       ws!.stream.listen(
         (message) {
-            try {
-                if (wsStatus != 'Connected') {
-                    wsStatus = 'Connected';
-                    lastWsError = '';
-                    notifyListeners();
-                }
-                
-                final data = jsonDecode(message);
-                
-                if (data['type'] == 'welcome') {
-                    playerId = data['playerId'];
-                    notifyListeners();
-                } else if (data['type'] == 'snapshot') {
-                    final players = data['players'] as Map<String, dynamic>;
-                    playerCount = players.length;
-                    _gameStateController.add(data);
-                    notifyListeners();
-                } else if (data['type'] == 'state' || data['type'] == 'delta') {
-                    _gameStateController.add(data);
-                }
-            } catch (e) {
-                print('Error parsing WS message: $e');
-            }
+          _reconnectAttempts = 0; // Reset on successful connection
+          if (wsStatus != 'Connected') {
+            wsStatus = 'Connected';
+            lastWsError = '';
+            notifyListeners();
+          }
+
+          final data = jsonDecode(message);
+          if (data['type'] == 'welcome') {
+            playerId = data['playerId'];
+          } else if (data['type'] == 'snapshot') {
+            playerCount = (data['players'] as Map<String, dynamic>).length;
+            _gameStateController.add(data);
+          } else if (data['type'] == 'state' || data['type'] == 'delta') {
+            _gameStateController.add(data);
+          }
+          notifyListeners();
         },
         onDone: () {
           wsStatus = 'Disconnected';
           if (lastWsError.isEmpty) lastWsError = 'Closed by server';
           playerCount = 0;
           notifyListeners();
+          _scheduleReconnect();
         },
         onError: (error) {
           wsStatus = 'Error';
           lastWsError = error.toString();
           playerCount = 0;
           notifyListeners();
+          _scheduleReconnect();
         },
       );
     } catch (e) {
@@ -130,19 +159,25 @@ class AppConfig extends ChangeNotifier {
       lastWsError = e.toString();
       playerCount = 0;
       notifyListeners();
+      _scheduleReconnect();
     }
   }
 
   void sendWsMessage(String message) {
+    if (wsStatus == 'Connected') {
       ws?.sink.add(message);
+    }
   }
-  
+
   void retryConnection() {
-      discoverBackend(); 
+    _reconnectAttempts = 0;
+    discoverBackend();
   }
 
   @override
   void dispose() {
+    _healthCheckTimer?.cancel();
+    _reconnectTimer?.cancel();
     _gameStateController.close();
     ws?.sink.close();
     super.dispose();
