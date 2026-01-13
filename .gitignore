@@ -1,28 +1,4 @@
-# Miscellaneous
-*.class
-*.log
-*.lock
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.buildlog/
-.history
-.svn/
-migrate_working_dir/
-
-# IntelliJ
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub
+# Flutter/Dart
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -30,22 +6,34 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 build/
-ios/Flutter/App.framework
-ios/Flutter/Flutter.framework
-ios/Flutter/Generated.xcconfig
-ios/Flutter/app.flx
-ios/Flutter/app.zip
-ios/Flutter/flutter_assets/
-ios/ServiceDefinitions.json
-ios/Runner/GeneratedPluginRegistrant.*
-android/local.properties
-web/icons/
 
-# Requested specific ignores
-roms/**
-contentpacks/**
-*.nds
-*.sfc
-*.smc
-*.gba
-*.zip
+# Android
+.gradle/
+local.properties
+*.keystore
+*.jks
+*.properties
+flutter_bundle/
+!default.properties
+
+# Log/Backups
+logs/
+backups/
+temp/
+*.log
+
+# Large Binary/Assets
+roms/
+contentpacks/
+assets/unpacked/
+tools/nds/
+tools/pack/
+
+# Node modules
+node_modules/
+server/node_modules/
+tools/node_modules/
+
+# OS files
+.DS_Store
+.history
