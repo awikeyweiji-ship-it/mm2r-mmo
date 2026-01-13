@@ -171,9 +171,15 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
 
     try {
         final newObjects = <String, WorldObject>{};
-        (data['portals'] as List? ?? []).forEach((p) => newObjects[p['id']] = WorldObject.fromJson(p, 'portal'));
-        (data['npcs'] as List? ?? []).forEach((n) => newObjects[n['id']] = WorldObject.fromJson(n, 'npc'));
-        (data['pickups'] as List? ?? []).forEach((p) => newObjects[p['id']] = WorldObject.fromJson(p, 'pickup'));
+        for (var p in (data['portals'] as List? ?? [])) {
+          newObjects[p['id']] = WorldObject.fromJson(p, 'portal');
+        }
+        for (var n in (data['npcs'] as List? ?? [])) {
+          newObjects[n['id']] = WorldObject.fromJson(n, 'npc');
+        }
+        for (var p in (data['pickups'] as List? ?? [])) {
+          newObjects[p['id']] = WorldObject.fromJson(p, 'pickup');
+        }
 
         setState(() {
           _worldObjects.clear();
@@ -311,9 +317,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
       } else if (type == 'delta') {
           (data['removes'] as List? ?? []).forEach(_remotePlayers.remove);
           
-          (data['upserts'] as List? ?? []).forEach((playerData) {
+          for (var playerData in (data['upserts'] as List? ?? [])) {
               final id = playerData['id'];
-              if (id == config.playerId) return;
+              if (id == config.playerId) continue;
               final targetPos = Point((playerData['x'] as num).toDouble(), (playerData['y'] as num).toDouble());
               if (_remotePlayers.containsKey(id)) {
                   _remotePlayers[id]!.updateTarget(targetPos, now);
@@ -325,9 +331,9 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                         position: targetPos,
                     );
               }
-          });
+          }
 
-          (data['objRemoves'] as List? ?? []).forEach((oid) {
+          for (var oid in (data['objRemoves'] as List? ?? [])) {
               if (_worldObjects.containsKey(oid)) {
                   final obj = _worldObjects[oid]!;
                   if (obj.type == 'pickup' && obj.active) {
@@ -341,7 +347,7 @@ class _WorldScreenState extends State<WorldScreen> with SingleTickerProviderStat
                   }
                   if(mounted) setState(() => obj.active = false);
               }
-          });
+          }
       }
     } catch(e) {
       print("!!! dartException in _handleGameState: $e");
@@ -531,8 +537,12 @@ class WorldPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0,0, size.width, size.height), Paint()..color = Colors.black);
 
     final gridPaint = Paint()..color = Colors.white10..strokeWidth = 1;
-    for (double i = 0; i < size.width; i += 50) canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
-    for (double i = 0; i < size.height; i += 50) canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
+    for (double i = 0; i < size.width; i += 50) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), gridPaint);
+    }
+    for (double i = 0; i < size.height; i += 50) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), gridPaint);
+    }
 
     for (final obj in worldObjects) {
         if (!obj.active) continue;
