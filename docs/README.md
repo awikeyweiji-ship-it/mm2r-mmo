@@ -1,47 +1,39 @@
-# 项目文档与开发指南
+# Project Documentation & Recovery Guide
 
-工程图、协议、路线图会放在这里。
+## ⚠️ Recovery Mode Notice
+If you are reading this, you might be in **Recovery Mode** or just finished an Environment Rebuild.
+The `dev.nix` configuration has been optimized ("slimmed down") to prevent timeouts during environment creation.
 
-## Web 预览模式切换 (WEB_MODE)
+**Key Changes:**
+- Removed redundant packages (`dart` is included in `flutter`).
+- **Faster Rebuilds:** `npm install` and `flutter pub get` are conditional or skipped in `onStart`.
+- **Stable Previews:** Web preview now defaults to `release` mode for stability. Backend preview runs on port 8080.
 
-为了平衡“实时热重载”和“发布版稳定性”，本项目在 `.idx/dev.nix` 中通过 `WEB_MODE` 变量支持两种模式。
+## Web Preview Modes
 
-### 1. 开发模式 (dev) - **默认**
-- **行为**：运行 `flutter run -d web-server`。
-- **优点**：支持 **Hot Reload / Hot Restart**。修改代码后，点击 IDE 的热重载按钮或保存文件，预览画面会实时更新。
-- **缺点**：性能稍弱（开发版编译），首次加载略慢。
-- **如何使用**：确保 `.idx/dev.nix` 中 `env.WEB_MODE = "dev";`。
+The project supports two modes for the Web Preview, controlled by the `WEB_MODE` environment variable in `.idx/dev.nix`.
 
-### 2. 发布模式 (release)
-- **行为**：执行 `flutter build web --release` 并通过 Node.js 代理服务器提供静态服务。
-- **优点**：性能最佳，模拟真实生产环境，适合最终演示。
-- **缺点**：**不支持热更新**。任何代码修改都需要等待 `flutter build` 重新完成（约 1-2 分钟）。
-- **如何使用**：
-    1. 修改 `.idx/dev.nix` 中的 `env.WEB_MODE = "release";`。
-    2. 执行 Command Palette -> **"Project IDX: Hard Restart"** 以重新启动预览服务器。
+### 1. Release Mode (Default & Recommended)
+- **Setting:** `WEB_MODE = "release";`
+- **Behavior:** Runs `flutter build web --release` and serves static files via `tools/web_dev_proxy.js`.
+- **Pros:** Fast load times, stable, accurately represents production build.
+- **Cons:** No hot reload. Requires a manual "Refresh" (restart preview) to see changes.
 
----
+### 2. Dev Mode
+- **Setting:** `WEB_MODE = "dev";`
+- **Behavior:** Runs `flutter run -d web-server`.
+- **Pros:** Supports Hot Reload.
+- **Cons:** Can be slower to start and heavier on memory.
 
-## 如何在 IDX 里点开可视化预览 (Recommended)
+**To switch modes:**
+1. Edit `.idx/dev.nix`.
+2. Change `WEB_MODE` value.
+3. Run **"IDX: Rebuild Environment"** (Cmd/Ctrl + Shift + P).
 
-本项目已接入 Project IDX 的 Previews 功能。
+## Backend Preview
+The backend server runs automatically on port 8080.
+- Source: `server/` directory.
+- Command: `npm start` (runs `src/index.js`).
 
-**注意：如果预览没有自动刷新，请执行 Command Palette -> "Project IDX: Hard Restart"。**
-**如果重启后预览标签消失，请点击 IDE 右下角的 "Rebuild Environment" 按钮或通过命令面板执行重建。**
-
-### 1. 打开 Previews 面板
-- 在 IDE 界面顶部 Tab 栏寻找 **"Previews"** 标签。
-- 或者点击 IDE 右侧边栏的 **"Previews"** 图标。
-
-### 2. 选择预览实例
-- **web (Flutter Web)**: 真正的游戏画面预览。
-- **backend (8080)**: 后端 Node.js 服务。
-
----
-
-## 开发环境网络说明
-
-在 IDX 中，我们使用了 **Tools Proxy (tools/web_dev_proxy.js)** 来处理同源问题：
-- 所有指向 `/api/*` 的请求会自动转发到后端的 8080 端口。
-- 所有指向 `/ws` 的 WebSocket 请求会自动转发到后端的 8080 端口。
-- 这样 App 内部可以使用相对路径或同源策略，无需手动填写复杂的 Forwarded URL。
+## Architecture Overview
+See `docs/ARCHITECTURE.md` for detailed system design.

@@ -54,3 +54,14 @@
 - Fixed dev proxy crash by fallback PORT to 9000 if not set.
 - Client now attempts to load assets/poc/world_objects_generated.json first.
 - Debug UI shows LoadedObjectsSource.
+
+## System Optimization (Recovery Mode) - 20260112_154810
+- **DevNix Slimming**: Removed redundant `dart` package. Optimized `packages` list to just `flutter`, `nodejs_20`, `jdk17`.
+- **Rebuild Speed**: `onCreate` and `onStart` now check for existence of `node_modules` before running install. `flutter pub get` is restricted to `onCreate`.
+- **Preview Stability**:
+  - Web Preview defaults to `release` mode (stable build) with fallback to `dev` mode.
+  - Backend Preview added to `dev.nix` (port 8080) with auto-install logic.
+- **Documentation**: Updated `docs/README.md` with Recovery Mode details and `WEB_MODE` switching guide.
+- **Backup**: Created `backups/devnix_slim_20260112_154810.tar.gz`.
+
+**Status**: ✅ System Optimization Complete. Ready for faster Rebuilds.
