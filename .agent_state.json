@@ -1,4 +1,4 @@
 {
-  "devnix_slim_done": true,
-  "r1_2a_warp_extract_done": true
+    "web_port_strict_fix": true,
+    "android_ndk_fix": true
 }

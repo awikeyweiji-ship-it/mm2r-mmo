@@ -65,3 +65,7 @@
 - **Backup**: Created `backups/devnix_slim_20260112_154810.tar.gz`.
 
 **Status**: ✅ System Optimization Complete. Ready for faster Rebuilds.
+
+## Web & Android Fixes
+- **Web Preview**: Enforced strict `$PORT` usage in `tools/web_dev_proxy.js` to prevent EADDRINUSE:9000. Added `export PORT="$PORT"` to `.idx/dev.nix`.
+- **Android Preview**: Deleted corrupted NDK directory (`28.2.13676358`) to force fresh download on next build.

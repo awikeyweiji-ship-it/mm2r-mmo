@@ -53,7 +53,7 @@
           command = [
             "bash"
             "-lc"
-            "if [ ! -d \"tools/node_modules\" ]; then (cd tools && npm install); fi && if [ \"$WEB_MODE\" = \"release\" ]; then flutter build web --release --pwa-strategy=none --dart-define=BUILD_ID=$(date +%Y%m%d_%H%M%S) && cd tools && node web_dev_proxy.js; else export FRONTEND_PORT=5000; export RENDERER_URL=\"http://127.0.0.1:$FRONTEND_PORT\"; (cd tools && RENDERER_URL=$RENDERER_URL node web_dev_proxy.js) & flutter run -d web-server --web-hostname 127.0.0.1 --web-port $FRONTEND_PORT --no-pub; fi"
+            "export PORT=\"$PORT\"; echo \"IDX PORT=$PORT\"; if [ ! -d \"tools/node_modules\" ]; then (cd tools && npm install); fi && if [ \"$WEB_MODE\" = \"release\" ]; then flutter build web --release --pwa-strategy=none --dart-define=BUILD_ID=$(date +%Y%m%d_%H%M%S) && cd tools && node web_dev_proxy.js; else export FRONTEND_PORT=5000; export RENDERER_URL=\"http://127.0.0.1:$FRONTEND_PORT\"; (cd tools && RENDERER_URL=$RENDERER_URL node web_dev_proxy.js) & flutter run -d web-server --web-hostname 127.0.0.1 --web-port $FRONTEND_PORT --no-pub; fi"
           ];
           manager = "web";
         };
