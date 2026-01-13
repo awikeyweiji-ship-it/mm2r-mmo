@@ -67,8 +67,16 @@ app.use((req, res, next) => {
 app.use('/api', createProxyMiddleware({
   target: BACKEND_URL,
   changeOrigin: true,
+  timeout: 30000,
+  proxyTimeout: 30000,
   pathRewrite: {
     '^/api': '',
+  },
+  onError: (err, req, res) => {
+    res.writeHead(500, {
+      'Content-Type': 'application/json'
+    });
+    res.end(JSON.stringify({ok: false, error: "proxy_error", detail: err.message}));
   },
   onProxyRes: (proxyRes, req, res) => {
       proxyRes.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate';
@@ -78,13 +86,12 @@ app.use('/api', createProxyMiddleware({
 }));
 
 // Proxy WebSocket connections
-const wsProxy = createProxyMiddleware({
+const wsProxy = createProxyMiddleware('/ws', {
   target: WS_BACKEND_URL,
   ws: true,
   changeOrigin: true,
-  pathRewrite: {
-    '^/ws': '/ws',
-  },
+  timeout: 30000,
+  proxyTimeout: 30000,
 });
 app.use('/ws', wsProxy);
 
@@ -108,7 +115,7 @@ if (RENDERER_URL) {
 }
 
 const server = app.listen(port, '0.0.0.0', async () => {
-  console.log(`Proxy server listening on 0.0.0.0:${port}`);
+  console.log(`Proxy server ready and listening on 0.0.0.0:${port}`);
   await checkBackendReady();
   console.log(`Proxying /api to ${BACKEND_URL}`);
   console.log(`Proxying /ws to ${WS_BACKEND_URL}/ws`);

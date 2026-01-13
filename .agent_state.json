@@ -1,4 +1,1 @@
-{
-    "web_port_strict_fix": true,
-    "android_ndk_fix": true
-}
+{"auto_reconnect_harden": true}

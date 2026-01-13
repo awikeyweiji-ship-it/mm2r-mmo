@@ -69,3 +69,10 @@
 ## Web & Android Fixes
 - **Web Preview**: Enforced strict `$PORT` usage in `tools/web_dev_proxy.js` to prevent EADDRINUSE:9000. Added `export PORT="$PORT"` to `.idx/dev.nix`.
 - **Android Preview**: Deleted corrupted NDK directory (`28.2.13676358`) to force fresh download on next build.
+
+## AUTO_RECONNECT_HARDEN
+- **Proxy**: Toughened `tools/web_dev_proxy.js` with increased timeouts for `/api` and ensured `ws:true` for `/ws` to prevent silent disconnects. Errors now return explicit JSON messages instead of 504s.
+- **Client**: Fortified the Flutter web client with a permanent, exponential backoff reconnection strategy for both Health checks and WebSocket connections. All network exceptions are now caught and displayed in the UI's debug area, preventing crashes and ensuring the reconnection loop is never interrupted.
+- **JSON Parsing**: Made the `world_objects.json` loading process resilient. The client now safely falls back to a default asset if the generated JSON is missing, empty, or malformed, and clearly indicates the data source (`generated` or `default`) in the UI.
+
+**Status**: ✅ AUTO_RECONNECT_HARDEN Complete. The application is now significantly more resilient to backend and network interruptions.

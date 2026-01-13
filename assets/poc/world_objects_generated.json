@@ -1,19 +1,64 @@
 {
-  "portals": [
-    {
-      "id": "portal_gen_1",
-      "type": "portal",
-      "x": 800,
-      "y": 800,
-      "width": 80,
-      "height": 80,
-      "target": {
-        "x": 200,
-        "y": 200
-      },
-      "label": "Generated Portal 1"
-    }
-  ],
-  "npcs": [],
-  "pickups": []
+    "portals": [
+        {
+            "id": "portal_town",
+            "label": "To Town",
+            "x": 700,
+            "y": 100,
+            "target": {
+                "x": 100,
+                "y": 100
+            }
+        }
+    ],
+    "npcs": [
+        {
+            "id": "npc_guide",
+            "name": "Old Man",
+            "x": 150,
+            "y": 150
+        }
+    ],
+    "pickups": [
+        {
+            "id": "pickup_100",
+            "itemId": "gem_ruby",
+            "label": "Generated Pickup 1",
+            "source": {"file":"mock","offset":0,"recordLen":16,"confidence":"mock"},
+            "x": 200,
+            "y": 500
+        },
+        {
+            "id": "pickup_101",
+            "itemId": "gem_sapphire",
+            "label": "Generated Pickup 2",
+            "source": {"file":"mock","offset":16,"recordLen":16,"confidence":"mock"},
+            "x": 300,
+            "y": 520
+        },
+        {
+            "id": "pickup_102",
+            "itemId": "gem_emerald",
+            "label": "Generated Pickup 3",
+            "source": {"file":"mock","offset":32,"recordLen":16,"confidence":"mock"},
+            "x": 400,
+            "y": 540
+        },
+        {
+            "id": "pickup_103",
+            "itemId": "gold_coin",
+            "label": "Generated Pickup 4",
+            "source": {"file":"mock","offset":48,"recordLen":16,"confidence":"mock"},
+            "x": 500,
+            "y": 560
+        },
+        {
+            "id": "pickup_104",
+            "itemId": "potion_health",
+            "label": "Generated Pickup 5",
+            "source": {"file":"mock","offset":64,"recordLen":16,"confidence":"mock"},
+            "x": 600,
+            "y": 580
+        }
+    ]
 }

@@ -150,5 +150,93 @@
     "x": 300,
     "y": 195,
     "ts": 1768275257840
+  },
+  "pk-1ev35nmh": {
+    "roomId": "poc_world",
+    "name": "player-1000",
+    "color": "#8f5800",
+    "x": 266.25,
+    "y": 165,
+    "ts": 1768277854466
+  },
+  "pk-07jexcoi": {
+    "roomId": "poc_world",
+    "name": "player-7000",
+    "color": "#2cdc4b",
+    "x": 446.25,
+    "y": 405,
+    "ts": 1768278174135
+  },
+  "pk-l3u19qyi": {
+    "roomId": "poc_world",
+    "name": "player-7000",
+    "color": "#689c00",
+    "x": 275,
+    "y": 328,
+    "ts": 1768278071246
+  },
+  "pk-ju5c1mga": {
+    "roomId": "poc_world",
+    "name": "player-9000",
+    "color": "#61aa5a",
+    "x": 321.30129494060697,
+    "y": 131.23129952812369,
+    "ts": 1768278282633
+  },
+  "pk-lsedf7kg": {
+    "roomId": "poc_world",
+    "name": "player-9000",
+    "color": "#9c9133",
+    "x": 287.5,
+    "y": 216.25,
+    "ts": 1768278483898
+  },
+  "pk-307d7ylr": {
+    "roomId": "poc_world",
+    "name": "player-0",
+    "color": "#a670b6",
+    "x": 609,
+    "y": 567,
+    "ts": 1768278525207
+  },
+  "pk-eoffxwd3": {
+    "roomId": "poc_world",
+    "name": "player-9000",
+    "color": "#ee3c92",
+    "x": 567.5,
+    "y": 277.5,
+    "ts": 1768278723082
+  },
+  "pk-5695x6eb": {
+    "roomId": "poc_world",
+    "name": "player-4000",
+    "color": "#37509a",
+    "x": 413.75,
+    "y": 237.5,
+    "ts": 1768278744463
+  },
+  "pk-xrlzbykz": {
+    "roomId": "poc_world",
+    "name": "player-5000",
+    "color": "#ee5727",
+    "x": 463.75,
+    "y": 317.5,
+    "ts": 1768279321182
+  },
+  "pk-61mfl6p5": {
+    "roomId": "poc_world",
+    "name": "player-6000",
+    "color": "#0bc183",
+    "x": 402.5,
+    "y": 360,
+    "ts": 1768279348150
+  },
+  "pk-ya44ruyc": {
+    "roomId": "poc_world",
+    "name": "player-0",
+    "color": "#a78b7e",
+    "x": 371,
+    "y": 411,
+    "ts": 1768279344849
   }
 }
