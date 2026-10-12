@@ -195,7 +195,26 @@ function r06Clearance(mesh,cloud){const p=mesh.geometry.getAttribute('position')
 function r06ClothMaterial(){const c=document.createElement('canvas');c.width=128;c.height=128;const q=c.getContext('2d'),rnd=r06Random(7093);q.fillStyle='#55585a';q.fillRect(0,0,128,128);for(let y=0;y<128;y+=2)for(let x=0;x<128;x+=2){const tone=78+Math.floor(rnd()*18)+((x+y)%4?3:-3);q.fillStyle='rgb('+tone+','+(tone+2)+','+(tone+3)+')';q.fillRect(x,y,1,2);}const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(10,10);return new THREE.MeshStandardMaterial({name:'R06_Charcoal_Weave',map:t,color:0x858b91,roughness:.91,metalness:0,side:THREE.DoubleSide});}
 function r06FrontSampler(mesh){return(x,y)=>{r06Require(Number.isFinite(x)&&Number.isFinite(y),'贴袋采样坐标非法');mesh.updateWorldMatrix(true,false);const determinant=mesh.matrixWorld.determinant();r06Require(Number.isFinite(determinant)&&Math.abs(determinant)>1e-12,'服装变换不可逆');const surface=r06SurfaceIndex(mesh),worldBox=surface.box.clone().applyMatrix4(mesh.matrixWorld),span=Math.max(.01,worldBox.max.z-worldBox.min.z);const ray=new THREE.Ray(new THREE.Vector3(x,y,worldBox.max.z+span+.001),new THREE.Vector3(0,0,-1)).applyMatrix4(mesh.matrixWorld.clone().invert());const hit=surface.intersectRay(ray);r06Require(hit,'贴袋射线未命中服装，不使用默认深度伪造贴合');return hit.point.clone().applyMatrix4(mesh.matrixWorld).z;};}
 function r06ChestPanel(owner,x,y,frontZ,mat,name){const p=[],uv=[],ix=[],nx=10,ny=14,w=.062,h=.076;for(let j=0;j<=ny;j++)for(let i=0;i<=nx;i++){const u=i/nx,v=j/ny,xx=x+(u-.5)*w,yy=y+(v-.5)*h,zz=frontZ(xx,yy)+.0035+.002*Math.sin(Math.PI*u)*Math.sin(Math.PI*v);p.push(xx,yy,zz);uv.push(u,v);}for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i,b=a+nx+1;ix.push(a,a+1,b,a+1,b+1,b);}return r06Attach(r06Geometry(p,uv,ix),owner,mat,name);}
-function r06Collar(owner,mat,top){const p=[],uv=[],ix=[],steps=64,rows=6,base=top-.309;for(let i=0;i<=steps;i++){const a=.60+i/steps*(Math.PI*2-1.20);for(let j=0;j<=rows;j++){const t=j/rows,rx=.071-t*.006,rz=.067-t*.004,xx=rx*Math.sin(a),zz=.026+rz*Math.cos(a),yy=base+t*(.040+.012*Math.max(0,-Math.cos(a)));p.push(xx,yy,zz);uv.push(i/steps,t);}}for(let i=0;i<steps;i++)for(let j=0;j<rows;j++){const a=i*(rows+1)+j,b=a+rows+1;ix.push(a,b,a+1,a+1,b,b+1);}return r06Attach(r06Geometry(p,uv,ix),owner,mat,'R06_Jacket_Standing_Collar');}
+function r06Collar(owner,mat,top){
+ owner.updateWorldMatrix(true,false);
+ const surface=r06SurfaceIndex(owner),p=[],uv=[],ix=[],steps=64,rows=6,base=top-.309;
+ const inv=owner.matrixWorld.clone().invert(),world=new THREE.Vector3(),local=new THREE.Vector3(),radial=new THREE.Vector3();
+ for(let i=0;i<=steps;i++){
+  const a=.60+i/steps*(Math.PI*2-1.20);
+  world.set(.071*Math.sin(a),base,.026+.067*Math.cos(a));local.copy(world).applyMatrix4(inv);
+  const hit=surface.nearest(local,.12);r06Require(hit,'站领基线无法投影到外套表面');
+  const baseWorld=hit.point.clone().applyMatrix4(owner.matrixWorld);
+  radial.set(Math.sin(a),0,Math.cos(a)).normalize();
+  for(let j=0;j<=rows;j++){
+   const t=j/rows,v=baseWorld.clone();
+   v.addScaledVector(radial,.0035*(1-t)-.003*t);
+   v.y+=t*(.036+.010*Math.max(0,-Math.cos(a)));
+   p.push(v.x,v.y,v.z);uv.push(i/steps,t);
+  }
+ }
+ for(let i=0;i<steps;i++)for(let j=0;j<rows;j++){const a=i*(rows+1)+j,b=a+rows+1;ix.push(a,b,a+1,a+1,b,b+1);}
+ return r06Attach(r06Geometry(p,uv,ix),owner,mat,'R06_Jacket_Standing_Collar');
+}
 function r06Cuff(owner,samples,sign,mat){const pts=samples.filter(p=>p[0]*sign>0);if(pts.length<4)return null;let minY=Infinity;for(const a of pts)minY=Math.min(minY,a[1]);const edge=pts.filter(a=>a[1]<minY+.014);if(edge.length<4)return null;let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;for(const a of edge){minX=Math.min(minX,a[0]);maxX=Math.max(maxX,a[0]);minZ=Math.min(minZ,a[2]);maxZ=Math.max(maxZ,a[2]);}const cx=(minX+maxX)/2,cz=(minZ+maxZ)/2,rx=(maxX-minX)/2+.002,rz=(maxZ-minZ)/2+.002;r06Require(rx>.006&&rz>.006,'袖口截面不可靠');const p=[],uv=[],ix=[],n=40,section=[[1,-.004],[1,.024],[.93,.024],[.93,-.004]];for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;for(let j=0;j<4;j++){p.push(cx+rx*section[j][0]*Math.cos(a),minY+section[j][1],cz+rz*section[j][0]*Math.sin(a));uv.push(i/n,j/3);}}for(let i=0;i<n;i++)for(let j=0;j<4;j++){const a=i*4+j,b=i*4+(j+1)%4,c=a+4,d=b+4;ix.push(a,c,b,b,c,d);}return r06Attach(r06Geometry(p,uv,ix),owner,mat,'R06_Jacket_Rolled_Cuff_'+(sign>0?'L':'R'));}
 function r06Garments(sceneRoot,bodies,headTop){const meshes=r06Meshes(sceneRoot),cloud=r06BodyCloud(bodies),main=meshes.filter(m=>/^(T_Shirt|Open_Hooded_Jacket|Cargo_Trousers)$/.test(m.name));r06Require(main.length>=2,'未找到已知服装部件，不猜测替换其他网格');const changed=[],added=[],mat=r06ClothMaterial();let jacket=null,sleeveSamples=[];
 for(const mesh of main){mesh.updateWorldMatrix(true,false);const e=mesh.matrixWorld.elements;r06Require(Math.abs(e[0]-1)+Math.abs(e[5]-1)+Math.abs(e[10]-1)+Math.abs(e[12])+Math.abs(e[13])+Math.abs(e[14])<1e-4,'服装局部坐标不符合已知R0.5，停止修形');mesh.geometry=mesh.geometry.clone();const g=mesh.geometry,p=g.getAttribute('position'),before=new Float32Array(p.array),smooth=r06SmoothSurface(g,12),isJacket=/Jacket/.test(mesh.name),isPants=/Trousers/.test(mesh.name),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight');let low=Infinity;const sleeve=new Uint8Array(p.count);
