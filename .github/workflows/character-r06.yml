@@ -1,4 +1,6 @@
 name: Character R06 validation
+permissions:
+  contents: write
 on:
   push:
     branches: [character-r06-lab]
@@ -32,6 +34,16 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Build R0.6 and capture real browser renders
         run: npm run browser:r06 | tee browser-run.log
+      - name: Persist validation outputs on isolated branch
+        if: always()
+        run: |
+          cd ..
+          git config user.name "character-r06-ci"
+          git config user.email "character-r06-ci@users.noreply.github.com"
+          git add character-r06/out character-r06/*-test.log character-r06/browser-run.log || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Persist R0.6 validation outputs [skip ci]"
+          git push origin HEAD:character-r06-lab
       - uses: actions/upload-artifact@v4
         with:
           name: character-r06-validation
