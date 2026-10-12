@@ -17,7 +17,7 @@ const html=fs.readFileSync(filename,'utf8');
 const match=html.match(/<script id="viewer-app" type="module">([\s\S]*?)<\/script>/);
 assert.ok(match,'Source viewer module was not found');
 const source=match[1];
-const wanted=['r06Require','r06Meshes','r06Geometry','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach','r07BodyShape'];
+const wanted=['r06Require','r06Meshes','r06Geometry','r06Smooth','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach','r07BodyShape'];
 const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
 const declarations=ast.body.filter(n=>n.type==='FunctionDeclaration'&&wanted.includes(n.id.name)).map(n=>source.slice(n.start,n.end));
 const resultExpression=wanted.map(n=>n+':typeof '+n+"==='undefined'?undefined:"+n).join(',');
