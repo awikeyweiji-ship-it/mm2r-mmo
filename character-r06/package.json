@@ -1,0 +1,10 @@
+{
+  "name":"character-r06-ci",
+  "private":true,
+  "type":"module",
+  "scripts":{
+    "test:r06":"node --test character_r06_regression.test.mjs",
+    "browser:r06":"node run-browser.mjs"
+  },
+  "dependencies":{"acorn":"8.15.0","three":"0.180.0","playwright":"1.55.1"}
+}
