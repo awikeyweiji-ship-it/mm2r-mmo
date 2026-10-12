@@ -29,11 +29,15 @@ jobs:
           if [ "$code" -eq 0 ]; then echo "Baseline unexpectedly passed all regression tests"; exit 1; fi
           exit 0
       - name: Patched regression tests
-        run: CHARACTER_HTML=character_r06_hair_body_candidate.html npm run test:r06 | tee patched-test.log
+        run: |
+          set -o pipefail
+          CHARACTER_HTML=character_r06_hair_body_candidate.html npm run test:r06 | tee patched-test.log
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Build R0.6 and capture real browser renders
-        run: npm run browser:r06 | tee browser-run.log
+        run: |
+          set -o pipefail
+          npm run browser:r06 | tee browser-run.log
       - name: Persist validation outputs on isolated branch
         if: always()
         run: |
