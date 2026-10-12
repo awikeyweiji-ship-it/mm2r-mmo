@@ -215,7 +215,34 @@ function r06Collar(owner,mat,top){
  for(let i=0;i<steps;i++)for(let j=0;j<rows;j++){const a=i*(rows+1)+j,b=a+rows+1;ix.push(a,b,a+1,a+1,b,b+1);}
  return r06Attach(r06Geometry(p,uv,ix),owner,mat,'R06_Jacket_Standing_Collar');
 }
-function r06Cuff(owner,samples,sign,mat){const pts=samples.filter(p=>p[0]*sign>0);if(pts.length<4)return null;let minY=Infinity;for(const a of pts)minY=Math.min(minY,a[1]);const edge=pts.filter(a=>a[1]<minY+.014);if(edge.length<4)return null;let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;for(const a of edge){minX=Math.min(minX,a[0]);maxX=Math.max(maxX,a[0]);minZ=Math.min(minZ,a[2]);maxZ=Math.max(maxZ,a[2]);}const cx=(minX+maxX)/2,cz=(minZ+maxZ)/2,rx=(maxX-minX)/2+.002,rz=(maxZ-minZ)/2+.002;r06Require(rx>.006&&rz>.006,'袖口截面不可靠');const p=[],uv=[],ix=[],n=40,section=[[1,-.004],[1,.024],[.93,.024],[.93,-.004]];for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;for(let j=0;j<4;j++){p.push(cx+rx*section[j][0]*Math.cos(a),minY+section[j][1],cz+rz*section[j][0]*Math.sin(a));uv.push(i/n,j/3);}}for(let i=0;i<n;i++)for(let j=0;j<4;j++){const a=i*4+j,b=i*4+(j+1)%4,c=a+4,d=b+4;ix.push(a,c,b,b,c,d);}return r06Attach(r06Geometry(p,uv,ix),owner,mat,'R06_Jacket_Rolled_Cuff_'+(sign>0?'L':'R'));}
+function r06Cuff(owner,samples,sign,mat){
+ const pts=samples.filter(p=>p[0]*sign>0);if(pts.length<4)return null;
+ let minY=Infinity;for(const a of pts)minY=Math.min(minY,a[1]);
+ const edge=pts.filter(a=>a[1]<minY+.014);if(edge.length<4)return null;
+ let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+ for(const a of edge){minX=Math.min(minX,a[0]);maxX=Math.max(maxX,a[0]);minZ=Math.min(minZ,a[2]);maxZ=Math.max(maxZ,a[2]);}
+ const cx=(minX+maxX)/2,cz=(minZ+maxZ)/2,rx=(maxX-minX)/2+.001,rz=(maxZ-minZ)/2+.001;
+ r06Require(rx>.006&&rz>.006,'袖口截面不可靠');
+ const surface=r06SurfaceIndex(owner),p=[],uv=[],ix=[],n=40;
+ const basePoints=[],radials=[];
+ for(let i=0;i<=n;i++){
+  const a=i/n*Math.PI*2,seed=new THREE.Vector3(cx+rx*Math.cos(a),minY,cz+rz*Math.sin(a));
+  const hit=surface.nearest(seed,.08);r06Require(hit,'袖口基线无法投影到外套表面');
+  const base=hit.point.clone(),radial=new THREE.Vector3(base.x-cx,0,base.z-cz);
+  if(radial.lengthSq()<1e-10)radial.set(Math.cos(a),0,Math.sin(a));else radial.normalize();
+  basePoints.push(base);radials.push(radial);
+ }
+ const section=[{out:.0025,dy:-.003},{out:.0025,dy:.019},{out:-.0015,dy:.019},{out:-.0015,dy:-.003}];
+ for(let i=0;i<=n;i++){
+  const base=basePoints[i],radial=radials[i];
+  for(let j=0;j<section.length;j++){
+   const s=section[j],v=base.clone().addScaledVector(radial,s.out);v.y+=s.dy;
+   p.push(v.x,v.y,v.z);uv.push(i/n,j/(section.length-1));
+  }
+ }
+ for(let i=0;i<n;i++)for(let j=0;j<4;j++){const a=i*4+j,b=i*4+(j+1)%4,c=a+4,d=b+4;ix.push(a,c,b,b,c,d);}
+ return r06Attach(r06Geometry(p,uv,ix),owner,mat,'R06_Jacket_Rolled_Cuff_'+(sign>0?'L':'R'));
+}
 function r06Garments(sceneRoot,bodies,headTop){const meshes=r06Meshes(sceneRoot),cloud=r06BodyCloud(bodies),main=meshes.filter(m=>/^(T_Shirt|Open_Hooded_Jacket|Cargo_Trousers)$/.test(m.name));r06Require(main.length>=2,'未找到已知服装部件，不猜测替换其他网格');const changed=[],added=[],mat=r06ClothMaterial();let jacket=null,sleeveSamples=[];
 for(const mesh of main){mesh.updateWorldMatrix(true,false);const e=mesh.matrixWorld.elements;r06Require(Math.abs(e[0]-1)+Math.abs(e[5]-1)+Math.abs(e[10]-1)+Math.abs(e[12])+Math.abs(e[13])+Math.abs(e[14])<1e-4,'服装局部坐标不符合已知R0.5，停止修形');mesh.geometry=mesh.geometry.clone();const g=mesh.geometry,p=g.getAttribute('position'),before=new Float32Array(p.array),smooth=r06SmoothSurface(g,12),isJacket=/Jacket/.test(mesh.name),isPants=/Trousers/.test(mesh.name),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight');let low=Infinity;const sleeve=new Uint8Array(p.count);
 if(isJacket&&mesh.isSkinnedMesh){for(let i=0;i<p.count;i++){let influence=0;for(let k=0;k<4;k++){const bone=mesh.skeleton.bones[si.getComponent(i,k)];if(bone&&/upperarm|lowerarm|forearm/i.test(bone.name))influence+=sw.getComponent(i,k);}if(influence>.65){sleeve[i]=1;low=Math.min(low,p.getY(i));}}jacket=mesh;}
