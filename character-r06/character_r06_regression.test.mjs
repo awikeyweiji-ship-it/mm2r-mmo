@@ -17,7 +17,7 @@ const html=fs.readFileSync(filename,'utf8');
 const match=html.match(/<script id="viewer-app" type="module">([\s\S]*?)<\/script>/);
 assert.ok(match,'Source viewer module was not found');
 const source=match[1];
-const wanted=['r06Require','r06Meshes','r06Geometry','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach'];
+const wanted=['r06Require','r06Meshes','r06Geometry','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach','r07BodyShape'];
 const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
 const declarations=ast.body.filter(n=>n.type==='FunctionDeclaration'&&wanted.includes(n.id.name)).map(n=>source.slice(n.start,n.end));
 const resultExpression=wanted.map(n=>n+':typeof '+n+"==='undefined'?undefined:"+n).join(',');
@@ -51,6 +51,21 @@ test('opaque skin gray mode does not retain the reference-photo map',()=>{const 
 test('attached geometry preserves world location and shares the intended bind state',()=>{const {mesh,parent}=skinned();mesh.position.set(.05,.06,.07);parent.updateMatrixWorld(true);mesh.bind(mesh.skeleton,mesh.matrixWorld.clone());parent.updateMatrixWorld(true);const g=geometry([.002,.002,.001,.004,.002,.001,.002,.004,.001]);g.applyMatrix4(mesh.matrixWorld);const expected=[];for(let i=0;i<3;i++)expected.push(new THREE.Vector3().fromBufferAttribute(g.getAttribute('position'),i));const added=call('r06Attach',g,mesh,new THREE.MeshStandardMaterial(),'R06_Test_Pocket');parent.updateMatrixWorld(true);for(let i=0;i<3;i++){const actual=new THREE.Vector3().fromBufferAttribute(added.geometry.getAttribute('position'),i).applyMatrix4(added.matrixWorld);near(actual.distanceTo(expected[i]),0);}assert.equal(call('r06SkinFingerprint',added),call('r06SkinFingerprint',mesh));});
 test('rigid hair attachment refuses a missing named head bone',()=>{const {mesh}=skinned();assert.throws(()=>call('r06Attach',geometry([0,0,0,.01,0,0,0,.01,0]),mesh,new THREE.MeshStandardMaterial(),'R06_Test_Hair','missing_head'));});
 
+
+test('body shape narrows central hip and leg regions without moving protected upper-body or distant arm vertices',()=>{
+ const g=geometry([
+   .14,.90,.00, .25,.90,.00, .10,.60,.00,
+   -.14,.90,.00, -.25,.90,.00, -.10,.60,.00,
+   .08,1.25,.00, -.08,1.25,.00, 0,1.30,.01
+ ],[0,1,2,3,4,5,6,7,8]);
+ const parent=new THREE.Group(),mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial());mesh.name='Body';parent.add(mesh);parent.updateMatrixWorld(true);
+ const before=Array.from(g.getAttribute('position').array);const out=call('r07BodyShape',[mesh]);const p=mesh.geometry.getAttribute('position');
+ assert.ok(Math.abs(p.getX(0))<Math.abs(before[0]),'hip must narrow');
+ assert.equal(p.getX(1),before[3],'distant arm/hand x must stay fixed');
+ assert.ok(Math.abs(p.getX(2)-.09)<Math.abs(before[6]-.09),'leg section must narrow around leg center');
+ assert.equal(p.getX(6),before[18],'upper body must stay fixed');
+ assert.ok(out.verticesChanged>=4);
+});
 
 // Scope: these are numerical and material-configuration regression tests.
 // They do NOT certify shader compilation, visual likeness, global intersection,
