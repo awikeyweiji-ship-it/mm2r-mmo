@@ -1,0 +1,41 @@
+name: Character R06 validation
+on:
+  push:
+    branches: [character-r06-lab]
+    paths:
+      - 'character-r06/**'
+      - '.github/workflows/character-r06.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: character-r06
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - name: Baseline tests should expose old implementation
+        run: |
+          set +e
+          CHARACTER_HTML=character_r06_original.html npm run test:r06 > baseline-test.log 2>&1
+          code=$?
+          cat baseline-test.log
+          if [ "$code" -eq 0 ]; then echo "Baseline unexpectedly passed all regression tests"; exit 1; fi
+          exit 0
+      - name: Patched regression tests
+        run: CHARACTER_HTML=character_r06_hair_body_candidate.html npm run test:r06 | tee patched-test.log
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build R0.6 and capture real browser renders
+        run: npm run browser:r06 | tee browser-run.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: character-r06-validation
+          path: |
+            character-r06/out/**
+            character-r06/*-test.log
+            character-r06/browser-run.log
