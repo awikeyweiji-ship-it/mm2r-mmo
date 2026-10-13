@@ -1,0 +1,84 @@
+name: Build standalone Clash GPT assistant APK
+
+on:
+  push:
+    branches:
+      - feature/clash-gpt-apk-build-20261013
+    paths:
+      - .github/workflows/clash-gpt-apk-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download verified existing Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 20 \
+            'https://a74a4852-e36d-47d3-88f7-01d5c7cf1c1e.sandbox.floot.app/_cdn/static/924956c3-8cef-4a9c-9c84-55c18dd71ad1-Clash_GPT_Android_source_only.zip' \
+            -o /tmp/clash-gpt-sources.zip
+          echo 'e1b4ddb8bc0ea648aa67f9ae08f9dc37085798f988effd6d64fdb91c1be37185  /tmp/clash-gpt-sources.zip' | sha256sum -c -
+          mkdir -p /tmp/clash-gpt-build
+          unzip -q /tmp/clash-gpt-sources.zip -d /tmp/clash-gpt-build
+          mkdir -p /tmp/clash-gpt-build/app/src/main/assets
+          curl --fail --location --retry 3 --connect-timeout 20 \
+            'https://github.com/MetaCubeX/ClashMetaForAndroid/releases/download/v2.11.30/cmfa-2.11.30-meta-arm64-v8a-release.apk' \
+            -o /tmp/clash-gpt-build/app/src/main/assets/clash-meta.apk
+          echo '93a719347dc2318b6b6356c588646a7ee82fd7ab0355e7a865fe6954de1234f0  /tmp/clash-gpt-build/app/src/main/assets/clash-meta.apk' | sha256sum -c -
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Verify and build APK
+        working-directory: /tmp/clash-gpt-build
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tests/run_core_tests.sh
+          python3 tests/test_contract.py
+          gradle --no-daemon :app:assembleDebug
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          unzip -p "$APK" assets/clash-meta.apk | sha256sum
+          test "$(unzip -p "$APK" assets/clash-meta.apk | sha256sum | cut -d ' ' -f 1)" = '93a719347dc2318b6b6356c588646a7ee82fd7ab0355e7a865fe6954de1234f0'
+          sha256sum "$APK"
+
+      - name: Publish APK on isolated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p releases
+          cp /tmp/clash-gpt-build/app/build/outputs/apk/debug/app-debug.apk releases/GPT_Clash_Startup_Assistant_20261013.apk
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add releases/GPT_Clash_Startup_Assistant_20261013.apk
+          git commit -m 'build: deliver Clash GPT starter APK [skip ci]'
+          git push origin HEAD:feature/clash-gpt-apk-build-20261013
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clash-gpt-starter-installable-apk
+          path: /tmp/clash-gpt-build/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: ignore
+          retention-days: 30
