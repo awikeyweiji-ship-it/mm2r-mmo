@@ -22,20 +22,6 @@
       ]
     },
     {
-      "name": "Hood_Rolled_Rim",
-      "meshName": "",
-      "materials": [
-        "jacket"
-      ]
-    },
-    {
-      "name": "Hood_Folded_Fabric",
-      "meshName": "",
-      "materials": [
-        "jacket"
-      ]
-    },
-    {
       "name": "Cargo_Pocket_R",
       "meshName": "",
       "materials": [
@@ -250,6 +236,20 @@
       "meshName": "",
       "materials": [
         "R11_Bag_Webbing"
+      ]
+    },
+    {
+      "name": "R12_Hood_DrapedPanel",
+      "meshName": "",
+      "materials": [
+        "R12_Hood_Folded_Charcoal"
+      ]
+    },
+    {
+      "name": "R12_Hood_CollarRim",
+      "meshName": "",
+      "materials": [
+        "R12_Hood_Rolled_Edge"
       ]
     },
     {
