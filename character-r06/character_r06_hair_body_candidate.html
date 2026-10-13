@@ -157,61 +157,82 @@ g.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(js,4));g.setAttribute
 }else{mesh=new THREE.Mesh(g,material);mesh.position.copy(owner.position);mesh.quaternion.copy(owner.quaternion);mesh.scale.copy(owner.scale);}
 mesh.name=name;mesh.userData={part_group:/Hair/.test(name)?'hair':'clothing',revision:'R0.6-candidate',sourcePatch:'surface-bind-20261012',generated_geometry:true,weightTransfer:transferStats};owner.parent.add(mesh);mesh.updateMatrixWorld(true);r06MeshCheck(mesh);if(mesh.isSkinnedMesh)r06Require(r06SkinFingerprint(mesh)===r06SkinFingerprint(owner),'附属件绑定未与来源一致');return mesh;
 }
-function r06HairAtlas(){const c=document.createElement('canvas');c.width=512;c.height=1024;const ctx=c.getContext('2d');r06Require(ctx,'Canvas 2D 不可用');const rnd=r06Random(61012);
-for(let lane=0;lane<4;lane++){const left=lane*128;ctx.save();ctx.beginPath();ctx.rect(left,0,128,1024);ctx.clip();const strands=[72,52,30,10][lane];for(let j=0;j<strands;j++){const x=left+10+rnd()*108,end=780+rnd()*240,bend=(rnd()-.5)*14,phase=rnd()*6.28;const tone=12+Math.floor(rnd()*24);ctx.strokeStyle='rgba('+tone+','+(tone+1)+','+(tone+2)+','+(.55+rnd()*.42)+')';ctx.lineWidth=.25+rnd()*.42;ctx.beginPath();for(let y=0;y<=end;y+=12){const t=y/end,xx=x+bend*t+Math.sin(t*5+phase)*2*t;const yy=y;if(y===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}ctx.stroke();}
-const grad=ctx.createLinearGradient(0,780,0,1024);grad.addColorStop(0,'rgba(255,255,255,1)');grad.addColorStop(1,'rgba(255,255,255,0)');ctx.globalCompositeOperation='destination-in';ctx.fillStyle=grad;ctx.fillRect(left,0,128,1024);ctx.globalCompositeOperation='source-over';ctx.restore();}
-const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;tex.needsUpdate=true;return tex;}
+function r06HairAtlas(){
+ const c=document.createElement('canvas');c.width=512;c.height=1024;const ctx=c.getContext('2d');
+ r06Require(ctx,'Canvas2D 不可用');const rnd=r06Random(61012);
+ for(let lane=0;lane<4;lane++){
+  const x=lane*128;ctx.save();ctx.beginPath();ctx.rect(x,0,128,1024);ctx.clip();
+  const grad=ctx.createLinearGradient(0,0,0,1024);
+  grad.addColorStop(0,'rgba(17,19,21,.96)');grad.addColorStop(.63,'rgba(18,20,23,.84)');grad.addColorStop(.86,'rgba(20,21,23,.52)');grad.addColorStop(1,'rgba(20,21,23,0)');
+  ctx.fillStyle=grad;ctx.fillRect(x+8,0,112,1024);
+  for(let j=0;j<45;j++){
+   const start=x+11+rnd()*105,end=770+rnd()*240,tone=14+Math.floor(rnd()*21);
+   ctx.strokeStyle='rgba('+tone+','+(tone+1)+','+(tone+2)+','+(.35+rnd()*.38)+')';
+   ctx.lineWidth=.45+rnd()*.60;ctx.beginPath();
+   for(let y=0;y<=end;y+=14){const dx=Math.sin(y*.011+j)*.55*(y/end),xx=start+dx;if(y===0)ctx.moveTo(xx,y);else ctx.lineTo(xx,y);}ctx.stroke();
+  }
+  ctx.restore();
+ }
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;t.needsUpdate=true;return t;
+}
 function r06Scalp(bodyMeshes){let top=-Infinity;const p3=new THREE.Vector3();for(const m of bodyMeshes){m.updateWorldMatrix(true,false);const p=m.geometry.getAttribute('position');for(let i=0;i<p.count;i++){p3.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);top=Math.max(top,p3.y);}}
 r06Require(top>1.55&&top<1.95,'人物尺度不符合已知 R0.5，停止自动塑形');let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
 for(const m of bodyMeshes){const p=m.geometry.getAttribute('position');for(let i=0;i<p.count;i++){p3.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);if(p3.y>top-.10&&p3.y<top-.035){minX=Math.min(minX,p3.x);maxX=Math.max(maxX,p3.x);minZ=Math.min(minZ,p3.z);maxZ=Math.max(maxZ,p3.z);}}}
 r06Require(Number.isFinite(minX)&&maxX>minX,'无法取得头部外形');return {cx:(minX+maxX)/2,cy:top-.109,cz:(minZ+maxZ)/2,rx:r06Clamp((maxX-minX)/2,.067,.093),ry:.111,rz:r06Clamp((maxZ-minZ)/2,.072,.108),top};}
 function r06ScalpPoint(h,theta,phi,lift=0){return new THREE.Vector3(h.cx+(h.rx+lift)*Math.sin(theta)*Math.sin(phi),h.cy+(h.ry+lift)*Math.cos(theta),h.cz+(h.rz+lift)*Math.sin(theta)*Math.cos(phi));}
-function r06HairLimit(phi){const front=Math.max(0,Math.cos(phi));return 1.94-.67*Math.pow(front,3);}
+function r06HairLimit(phi){const front=Math.max(0,Math.cos(phi));return 2.05-.29*front*front;}
 function r06AddCard(store,h,points,width,lane,lean=0){const curve=new THREE.CatmullRomCurve3(points,false,'centripetal'),steps=12,cols=3,base=store.p.length/3;
 for(let i=0;i<=steps;i++){const t=i/steps,c=curve.getPoint(t),tangent=curve.getTangent(t).normalize();const n=new THREE.Vector3((c.x-h.cx)/(h.rx*h.rx),(c.y-h.cy)/(h.ry*h.ry),(c.z-h.cz)/(h.rz*h.rz)).normalize();let side=new THREE.Vector3().crossVectors(tangent,n);if(side.lengthSq()<1e-10)side.set(1,0,0);side.normalize();const w=width*(.34+.66*Math.sin(Math.PI*Math.pow(t,.72)))*(.98-.88*Math.pow(t,4));
 for(let j=0;j<cols;j++){const u=j/(cols-1),s=u*2-1,v=c.clone().addScaledVector(side,s*w*.5).addScaledVector(n,(1-s*s)*width*.12+lean*Math.sin(Math.PI*t));store.p.push(v.x,v.y,v.z);store.uv.push((lane+.07+u*.86)/4,1-t);}}
 for(let i=0;i<steps;i++)for(let j=0;j<cols-1;j++){const a=base+i*cols+j,b=a+cols;store.idx.push(a,b,a+1,a+1,b,b+1);}store.cards++;}
-function r08ScalpShell(owner,h){
- const geom=owner.geometry,pos=geom.getAttribute('position'),norm=geom.getAttribute('normal'),ix=geom.index;
- const verts=new Float32Array(pos.count*3),inside=new Uint8Array(pos.count),v=new THREE.Vector3(),n=new THREE.Vector3();
- const normalMat=new THREE.Matrix3().getNormalMatrix(owner.matrixWorld);
+function r08ScalpShell(owner,bodyMeshes,h){
+ const p=[],uv=[],faces=[],normalEps=.008;
  function covered(x,y,z){
-  if(y<h.top-.198||y>h.top+.01)return false;
+  if(y<h.top-.196||y>h.top+.012)return false;
   const dx=x-h.cx,dz=z-h.cz,phi=Math.atan2(dx,dz),theta=Math.acos(r06Clamp((y-h.cy)/h.ry,-1,1));
-  return theta<=r06HairLimit(phi)+.06&&Math.abs(dx)<=h.rx+.043&&Math.abs(dz)<=h.rz+.045;
+  return theta<=r06HairLimit(phi)+.035&&Math.abs(dx)<=h.rx+.040&&Math.abs(dz)<=h.rz+.050;
  }
- for(let id=0;id<pos.count;id++){
-  v.fromBufferAttribute(pos,id).applyMatrix4(owner.matrixWorld);
-  const off=id*3;verts[off]=v.x;verts[off+1]=v.y;verts[off+2]=v.z;
-  inside[id]=covered(v.x,v.y,v.z)?1:0;
+ let contributingMeshes=0;
+ for(const mesh of bodyMeshes){
+  const geom=mesh.geometry,pos=geom?.getAttribute('position'),norm=geom?.getAttribute('normal'),ix=geom?.index;if(!pos)continue;
+  mesh.updateWorldMatrix(true,false);
+  const verts=new Float32Array(pos.count*3),inside=new Uint8Array(pos.count),v=new THREE.Vector3(),n=new THREE.Vector3(),nmat=new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
+  let maxY=-Infinity;for(let id=0;id<pos.count;id++){
+   v.fromBufferAttribute(pos,id).applyMatrix4(mesh.matrixWorld);
+   const off=id*3;verts[off]=v.x;verts[off+1]=v.y;verts[off+2]=v.z;
+   inside[id]=covered(v.x,v.y,v.z)?1:0;maxY=Math.max(maxY,v.y);
+  }
+  if(maxY<h.top-.193)continue;
+  const mapped=new Map(),count0=faces.length,triCount=(ix?ix.count:pos.count)/3;
+  function append(id){
+   if(mapped.has(id))return mapped.get(id);
+   const off=id*3;v.set(verts[off],verts[off+1],verts[off+2]);
+   if(norm)n.fromBufferAttribute(norm,id).applyMatrix3(nmat).normalize();
+   else n.subVectors(v,new THREE.Vector3(h.cx,h.cy,h.cz)).normalize();
+   v.addScaledVector(n,normalEps);
+   const out=p.length/3;mapped.set(id,out);p.push(v.x,v.y,v.z);uv.push((v.x-h.cx)/.30+.5,(v.z-h.cz)/.30+.5);
+   return out;
+  }
+  for(let tri=0;tri<triCount;tri++){
+   const ids=ix?[ix.getX(tri*3),ix.getX(tri*3+1),ix.getX(tri*3+2)]:[tri*3,tri*3+1,tri*3+2];
+   if(inside[ids[0]]+inside[ids[1]]+inside[ids[2]]<2)continue;
+   const mx=(verts[ids[0]*3]+verts[ids[1]*3]+verts[ids[2]*3])/3;
+   const my=(verts[ids[0]*3+1]+verts[ids[1]*3+1]+verts[ids[2]*3+1])/3;
+   const mz=(verts[ids[0]*3+2]+verts[ids[1]*3+2]+verts[ids[2]*3+2])/3;
+   if(!covered(mx,my,mz))continue;
+   faces.push(append(ids[0]),append(ids[1]),append(ids[2]));
+  }
+  if(faces.length>count0)contributingMeshes++;
  }
- const mapped=new Map(),p=[],uv=[],faces=[],triCount=(ix?ix.count:pos.count)/3;
- function append(id){
-  if(mapped.has(id))return mapped.get(id);
-  const off=id*3;v.set(verts[off],verts[off+1],verts[off+2]);
-  if(norm)n.fromBufferAttribute(norm,id).applyMatrix3(normalMat).normalize();
-  else n.sub(v,new THREE.Vector3(h.cx,h.cy,h.cz)).normalize();
-  v.addScaledVector(n,.0075);
-  const out=p.length/3;mapped.set(id,out);p.push(v.x,v.y,v.z);uv.push((v.x-h.cx)/.30+.5,(v.z-h.cz)/.30+.5);
-  return out;
- }
- for(let tri=0;tri<triCount;tri++){
-  const ids=ix?[ix.getX(tri*3),ix.getX(tri*3+1),ix.getX(tri*3+2)]:[tri*3,tri*3+1,tri*3+2];
-  if(inside[ids[0]]+inside[ids[1]]+inside[ids[2]]<2)continue;
-  const mx=(verts[ids[0]*3]+verts[ids[1]*3]+verts[ids[2]*3])/3;
-  const my=(verts[ids[0]*3+1]+verts[ids[1]*3+1]+verts[ids[2]*3+1])/3;
-  const mz=(verts[ids[0]*3+2]+verts[ids[1]*3+2]+verts[ids[2]*3+2])/3;
-  if(!covered(mx,my,mz))continue;
-  faces.push(append(ids[0]),append(ids[1]),append(ids[2]));
- }
- r06Require(faces.length>=600,'真实头皮几何覆盖不足，不使用空心发帽充数');
- const shell=r06Attach(r06Geometry(p,uv,faces),owner,new THREE.MeshStandardMaterial({name:'R08_Scalp_Dark_Cover',color:0x17191b,roughness:1,metalness:0,side:THREE.DoubleSide}),'R08_Hair_ScalpShell','head');
- shell.userData.sourceTriangles=faces.length/3;shell.userData.uniqueVertices=p.length/3;return shell;
+ r06Require(faces.length>=600&&contributingMeshes>=1,'多网格真实头皮覆盖不足，拒绝伪造已完成发型');
+ const shell=r06Attach(r06Geometry(p,uv,faces),owner,new THREE.MeshStandardMaterial({name:'R09_Head_Scalp_Cover',color:0x15171a,roughness:1,metalness:0,side:THREE.DoubleSide}),'R08_Hair_ScalpShell','head');
+ shell.userData.sourceTriangles=faces.length/3;shell.userData.uniqueVertices=p.length/3;shell.userData.sourceMeshes=contributingMeshes;
+ return shell;
 }
 function r06Hair(owner,bodyMeshes){
  const h=r06Scalp(bodyMeshes),rnd=r06Random(20261013);
  const atlas=r06HairAtlas(),mat=new THREE.MeshStandardMaterial({name:'R08_ShortHair_Layered_Cards',map:atlas,roughness:.88,metalness:0,alphaTest:.14,side:THREE.DoubleSide});
- const added=[r08ScalpShell(owner,h)];let total=0;
+ const added=[r08ScalpShell(owner,bodyMeshes,h)];let total=0;
  const layers=[
   {name:'Coverage',count:180,lift:.005,width:.0080,theta0:.32},
   {name:'Mid_Clumps',count:140,lift:.010,width:.0068,theta0:.23},
