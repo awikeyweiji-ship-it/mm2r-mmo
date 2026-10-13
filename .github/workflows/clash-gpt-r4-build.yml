@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   assemble:
@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           base64 --decode build-assets/GPT_Starter_R4_source.tar.gz.b64 > "$RUNNER_TEMP/r4-source.tar.gz"
-          echo 'adc5b27f0f61e75b76ca7e29fe63f0c5e1e2e0e213d7063bacbcd836b4825ed5  '${RUNNER_TEMP}'/r4-source.tar.gz' | sha256sum -c - || {
+          echo "adc5b27f0f61e75b76ca7e29fe63f0c5e1e2e0e213d7063bacbcd836b4825ed5  $RUNNER_TEMP/r4-source.tar.gz" | sha256sum -c - || {
             sha256sum "$RUNNER_TEMP/r4-source.tar.gz"
             exit 1
           }
@@ -101,10 +101,39 @@ jobs:
           cp "$APK" "$RUNNER_TEMP/result/GPT_Clash_ChatGPT_R4_Offline_Arm64.apk"
           sha256sum "$RUNNER_TEMP/result/GPT_Clash_ChatGPT_R4_Offline_Arm64.apk"
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload installable APK
+        id: upload_apk
+        uses: actions/upload-artifact@v4
         with:
           name: GPT_Clash_ChatGPT_R4_Offline_APK
           path: ${{ runner.temp }}/result/GPT_Clash_ChatGPT_R4_Offline_Arm64.apk
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+
+      - name: Record build receipt
+        if: always()
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload_apk.outputs.artifact-id }}
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          mkdir -p build-output
+          python3 - <<'PY'
+          import json, os, pathlib,hashlib
+          receipt={'run_id':int(os.environ['GITHUB_RUN_ID']),
+                   'status':os.environ.get('BUILD_STATUS','unknown'),
+                   'artifact_id':os.environ.get('ARTIFACT_ID',''),
+                   'commit':os.environ['GITHUB_SHA']}
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'result/GPT_Clash_ChatGPT_R4_Offline_Arm64.apk'
+          if p.is_file():
+              receipt['apk_sha256']=hashlib.sha256(p.read_bytes()).hexdigest()
+              receipt['apk_bytes']=p.stat().st_size
+          pathlib.Path('build-output/R4_RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\\n')
+          print('Build receipt:',json.dumps(receipt))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add build-output/R4_RECEIPT.json
+          git commit -m 'ci: record R4 build result [skip ci]' || true
+          git push origin HEAD:feature/clash-gpt-r4-bundled-apkm-20261013
