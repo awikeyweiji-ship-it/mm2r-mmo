@@ -1,0 +1,335 @@
+{
+  "meshNodes": [
+    {
+      "name": "T_Shirt",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    },
+    {
+      "name": "Open_Hooded_Jacket",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    },
+    {
+      "name": "Cargo_Trousers",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    },
+    {
+      "name": "Hood_Rolled_Rim",
+      "meshName": "",
+      "materials": [
+        "jacket"
+      ]
+    },
+    {
+      "name": "Hood_Folded_Fabric",
+      "meshName": "",
+      "materials": [
+        "jacket"
+      ]
+    },
+    {
+      "name": "Rear_Pouch",
+      "meshName": "",
+      "materials": [
+        "bag"
+      ]
+    },
+    {
+      "name": "Pouch_Zip",
+      "meshName": "",
+      "materials": [
+        "metal"
+      ]
+    },
+    {
+      "name": "Cargo_Pocket_R",
+      "meshName": "",
+      "materials": [
+        "pants"
+      ]
+    },
+    {
+      "name": "Cargo_Pocket_Seam_R",
+      "meshName": "",
+      "materials": [
+        "seam"
+      ]
+    },
+    {
+      "name": "Cargo_Pocket_L",
+      "meshName": "",
+      "materials": [
+        "pants"
+      ]
+    },
+    {
+      "name": "Cargo_Pocket_Seam_L",
+      "meshName": "",
+      "materials": [
+        "seam"
+      ]
+    },
+    {
+      "name": "Wrist_Device_Band",
+      "meshName": "",
+      "materials": [
+        "rubber"
+      ]
+    },
+    {
+      "name": "Wrist_Device_Face",
+      "meshName": "",
+      "materials": [
+        "metal"
+      ]
+    },
+    {
+      "name": "Eye_Surface_L",
+      "meshName": "",
+      "materials": [
+        "eyesReference"
+      ]
+    },
+    {
+      "name": "Eye_Surface_R",
+      "meshName": "",
+      "materials": [
+        "eyesReference"
+      ]
+    },
+    {
+      "name": "Upper_Teeth",
+      "meshName": "",
+      "materials": [
+        "eyes"
+      ]
+    },
+    {
+      "name": "Lower_Teeth",
+      "meshName": "",
+      "materials": [
+        "eyes"
+      ]
+    },
+    {
+      "name": "Tongue",
+      "meshName": "",
+      "materials": [
+        "skin"
+      ]
+    },
+    {
+      "name": "Eyebrows_R05",
+      "meshName": "",
+      "materials": [
+        "hair"
+      ]
+    },
+    {
+      "name": "Jacket_Zip_R_R05",
+      "meshName": "",
+      "materials": [
+        "metal"
+      ]
+    },
+    {
+      "name": "Jacket_Zip_L_R05",
+      "meshName": "",
+      "materials": [
+        "metal"
+      ]
+    },
+    {
+      "name": "Shoe_Upper_R_R05",
+      "meshName": "",
+      "materials": [
+        "rubber"
+      ]
+    },
+    {
+      "name": "Shoe_Sole_R_R05",
+      "meshName": "",
+      "materials": [
+        "sole"
+      ]
+    },
+    {
+      "name": "Shoe_Laces_R_R05",
+      "meshName": "",
+      "materials": [
+        "seam"
+      ]
+    },
+    {
+      "name": "Shoe_Upper_L_R05",
+      "meshName": "",
+      "materials": [
+        "rubber"
+      ]
+    },
+    {
+      "name": "Shoe_Sole_L_R05",
+      "meshName": "",
+      "materials": [
+        "sole"
+      ]
+    },
+    {
+      "name": "Shoe_Laces_L_R05",
+      "meshName": "",
+      "materials": [
+        "seam"
+      ]
+    },
+    {
+      "name": "Crossbody_Webbing_R05",
+      "meshName": "",
+      "materials": [
+        "bag"
+      ]
+    },
+    {
+      "name": "Body_Head_Hands_Feet_CC0",
+      "meshName": "",
+      "materials": [
+        "skin"
+      ]
+    },
+    {
+      "name": "Face_ReferenceSurface_R05",
+      "meshName": "",
+      "materials": [
+        "skinReference"
+      ]
+    },
+    {
+      "name": "R08_Hair_ScalpShell",
+      "meshName": "",
+      "materials": [
+        "R09_Head_Scalp_Cover"
+      ]
+    },
+    {
+      "name": "R08_Hair_Coverage",
+      "meshName": "",
+      "materials": [
+        "R08_ShortHair_Layered_Cards"
+      ]
+    },
+    {
+      "name": "R08_Hair_Mid_Clumps",
+      "meshName": "",
+      "materials": [
+        "R08_ShortHair_Layered_Cards"
+      ]
+    },
+    {
+      "name": "R08_Hair_Top_Silhouette",
+      "meshName": "",
+      "materials": [
+        "R08_ShortHair_Layered_Cards"
+      ]
+    },
+    {
+      "name": "R08_Hair_Fringe",
+      "meshName": "",
+      "materials": [
+        "R08_ShortHair_Layered_Cards"
+      ]
+    },
+    {
+      "name": "R08_Hair_Flyaways",
+      "meshName": "",
+      "materials": [
+        "R08_ShortHair_Layered_Cards"
+      ]
+    },
+    {
+      "name": "R06_Jacket_Chest_Pocket_R",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    },
+    {
+      "name": "R06_Jacket_Chest_Pocket_L",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    },
+    {
+      "name": "R06_Jacket_Standing_Collar",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    },
+    {
+      "name": "R06_Jacket_Rolled_Cuff_R",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    },
+    {
+      "name": "R06_Jacket_Rolled_Cuff_L",
+      "meshName": "",
+      "materials": [
+        "R06_Charcoal_Weave"
+      ]
+    }
+  ],
+  "bones": [
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163,
+    163
+  ],
+  "meshCount": 41
+}
