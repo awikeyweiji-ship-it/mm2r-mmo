@@ -17,7 +17,7 @@ const html=fs.readFileSync(filename,'utf8');
 const match=html.match(/<script id="viewer-app" type="module">([\s\S]*?)<\/script>/);
 assert.ok(match,'Source viewer module was not found');
 const source=match[1];
-const wanted=['r06Require','r06Meshes','r06Geometry','r06Clamp','r06Smooth','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach','r07BodyShape'];
+const wanted=['r06Require','r06Meshes','r06Geometry','r06Clamp','r06Smooth','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach','r07BodyShape','r06HairLimit'];
 const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
 const declarations=ast.body.filter(n=>n.type==='FunctionDeclaration'&&wanted.includes(n.id.name)).map(n=>source.slice(n.start,n.end));
 const resultExpression=wanted.map(n=>n+':typeof '+n+"==='undefined'?undefined:"+n).join(',');
@@ -73,3 +73,10 @@ test('body shape narrows central hip and leg regions without moving protected up
 // Required next: run this suite against the unmodified baseline (record real RED),
 // then the patched source (real GREEN), followed by real-browser GLB round-trip
 // and fixed-camera before/after screenshots. Do not mark tests passed from source review.
+
+test('R0.9 scalp hairline covers front and back without trimming to crown',()=>{
+ const front=call('r06HairLimit',0),back=call('r06HairLimit',Math.PI),side=call('r06HairLimit',Math.PI/2);
+ assert.ok(front>=1.70&&front<=1.92,'front hairline must reach mid forehead');
+ assert.ok(back>=1.95&&back<=2.18,'back hairline must cover rear scalp');
+ assert.ok(side>front&&side<back+0.01,'side hairline must be between front and back');
+});
