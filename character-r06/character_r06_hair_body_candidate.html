@@ -172,32 +172,41 @@ for(let i=0;i<=steps;i++){const t=i/steps,c=curve.getPoint(t),tangent=curve.getT
 for(let j=0;j<cols;j++){const u=j/(cols-1),s=u*2-1,v=c.clone().addScaledVector(side,s*w*.5).addScaledVector(n,(1-s*s)*width*.12+lean*Math.sin(Math.PI*t));store.p.push(v.x,v.y,v.z);store.uv.push((lane+.07+u*.86)/4,1-t);}}
 for(let i=0;i<steps;i++)for(let j=0;j<cols-1;j++){const a=base+i*cols+j,b=a+cols;store.idx.push(a,b,a+1,a+1,b,b+1);}store.cards++;}
 function r08ScalpShell(owner,h){
- const geom=owner.geometry,pos=geom.getAttribute('position'),norm=geom.getAttribute('normal'),idx=geom.index;
- const v=new THREE.Vector3(),n=new THREE.Vector3(),world=new THREE.Vector3(),normalMat=new THREE.Matrix3().getNormalMatrix(owner.matrixWorld);
- const p=[],uv=[],faces=[],triCount=(idx?idx.count:pos.count)/3;
- function inScalp(v){
-  if(v.y<h.top-.198||v.y>h.top+.01)return false;
-  const dx=v.x-h.cx,dz=v.z-h.cz,phi=Math.atan2(dx,dz),theta=Math.acos(r06Clamp((v.y-h.cy)/h.ry,-1,1));
+ const geom=owner.geometry,pos=geom.getAttribute('position'),norm=geom.getAttribute('normal'),ix=geom.index;
+ const verts=new Float32Array(pos.count*3),inside=new Uint8Array(pos.count),v=new THREE.Vector3(),n=new THREE.Vector3();
+ const normalMat=new THREE.Matrix3().getNormalMatrix(owner.matrixWorld);
+ function covered(x,y,z){
+  if(y<h.top-.198||y>h.top+.01)return false;
+  const dx=x-h.cx,dz=z-h.cz,phi=Math.atan2(dx,dz),theta=Math.acos(r06Clamp((y-h.cy)/h.ry,-1,1));
   return theta<=r06HairLimit(phi)+.06&&Math.abs(dx)<=h.rx+.043&&Math.abs(dz)<=h.rz+.045;
  }
- for(let i=0;i<triCount;i++){
-  const ids=idx?[idx.getX(3*i),idx.getX(3*i+1),idx.getX(3*i+2)]:[3*i,3*i+1,3*i+2];
-  const verts=ids.map(id=>new THREE.Vector3().fromBufferAttribute(pos,id).applyMatrix4(owner.matrixWorld));
-  const mid=verts[0].clone().add(verts[1]).add(verts[2]).divideScalar(3);
-  if(!inScalp(mid)||verts.filter(inScalp).length<2)continue;
-  const base=p.length/3;
-  for(let k=0;k<3;k++){
-   world.copy(verts[k]);
-   if(norm)n.fromBufferAttribute(norm,ids[k]).applyMatrix3(normalMat).normalize();
-   else n.subVectors(world,new THREE.Vector3(h.cx,h.cy,h.cz)).normalize();
-   world.addScaledVector(n,.0075);
-   p.push(world.x,world.y,world.z);uv.push(k===1?1:0,k===2?1:0);
-  }
-  faces.push(base,base+1,base+2);
+ for(let id=0;id<pos.count;id++){
+  v.fromBufferAttribute(pos,id).applyMatrix4(owner.matrixWorld);
+  const off=id*3;verts[off]=v.x;verts[off+1]=v.y;verts[off+2]=v.z;
+  inside[id]=covered(v.x,v.y,v.z)?1:0;
+ }
+ const mapped=new Map(),p=[],uv=[],faces=[],triCount=(ix?ix.count:pos.count)/3;
+ function append(id){
+  if(mapped.has(id))return mapped.get(id);
+  const off=id*3;v.set(verts[off],verts[off+1],verts[off+2]);
+  if(norm)n.fromBufferAttribute(norm,id).applyMatrix3(normalMat).normalize();
+  else n.sub(v,new THREE.Vector3(h.cx,h.cy,h.cz)).normalize();
+  v.addScaledVector(n,.0075);
+  const out=p.length/3;mapped.set(id,out);p.push(v.x,v.y,v.z);uv.push((v.x-h.cx)/.30+.5,(v.z-h.cz)/.30+.5);
+  return out;
+ }
+ for(let tri=0;tri<triCount;tri++){
+  const ids=ix?[ix.getX(tri*3),ix.getX(tri*3+1),ix.getX(tri*3+2)]:[tri*3,tri*3+1,tri*3+2];
+  if(inside[ids[0]]+inside[ids[1]]+inside[ids[2]]<2)continue;
+  const mx=(verts[ids[0]*3]+verts[ids[1]*3]+verts[ids[2]*3])/3;
+  const my=(verts[ids[0]*3+1]+verts[ids[1]*3+1]+verts[ids[2]*3+1])/3;
+  const mz=(verts[ids[0]*3+2]+verts[ids[1]*3+2]+verts[ids[2]*3+2])/3;
+  if(!covered(mx,my,mz))continue;
+  faces.push(append(ids[0]),append(ids[1]),append(ids[2]));
  }
  r06Require(faces.length>=600,'真实头皮几何覆盖不足，不使用空心发帽充数');
  const shell=r06Attach(r06Geometry(p,uv,faces),owner,new THREE.MeshStandardMaterial({name:'R08_Scalp_Dark_Cover',color:0x17191b,roughness:1,metalness:0,side:THREE.DoubleSide}),'R08_Hair_ScalpShell','head');
- shell.userData.sourceTriangles=faces.length/3;return shell;
+ shell.userData.sourceTriangles=faces.length/3;shell.userData.uniqueVertices=p.length/3;return shell;
 }
 function r06Hair(owner,bodyMeshes){
  const h=r06Scalp(bodyMeshes),rnd=r06Random(20261013);
