@@ -1,0 +1,92 @@
+name: Build R4 signer-ready shell (no proprietary binaries)
+
+on:
+  push:
+    branches:
+      - feature/clash-gpt-r4-bundled-apkm-20261013
+    paths:
+      - .github/workflows/clash-gpt-r4-shell.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore exact source and original Clash APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d build-assets/GPT_Starter_R4_source.tar.gz.b64 > "$RUNNER_TEMP/source.tar.gz"
+          echo "adc5b27f0f61e75b76ca7e29fe63f0c5e1e2e0e213d7063bacbcd836b4825ed5  $RUNNER_TEMP/source.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/project/app/src/main/assets"
+          tar -xzf "$RUNNER_TEMP/source.tar.gz" -C "$RUNNER_TEMP/project"
+          curl --fail -L --retry 3 --connect-timeout 20 --max-time 180 \
+            https://github.com/MetaCubeX/ClashMetaForAndroid/releases/download/v2.11.30/cmfa-2.11.30-meta-arm64-v8a-release.apk \
+            -o "$RUNNER_TEMP/project/app/src/main/assets/clash-meta.apk"
+          echo "93a719347dc2318b6b6356c588646a7ee82fd7ab0355e7a865fe6954de1234f0  $RUNNER_TEMP/project/app/src/main/assets/clash-meta.apk" | sha256sum -c -
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up official Android SDK tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl --fail -LsS --retry 3 --connect-timeout 20 \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -o "$RUNNER_TEMP/cmdtools.zip"
+          unzip -q "$RUNNER_TEMP/cmdtools.zip" -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          set +o pipefail
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" \
+            'platforms;android-35' 'build-tools;35.0.0'
+          set -o pipefail
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Run pure tests and compile shell
+        shell: bash
+        working-directory: ${{ runner.temp }}/project
+        run: |
+          set -euo pipefail
+          bash tests/run_core_tests.sh
+          python3 tests/test_contract.py
+          python3 tests/test_ui_contract.py
+          gradle --no-daemon :app:assembleDebug
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          echo 'Built unsigned-for-final-delivery shell without bundled ChatGPT APKM.'
+          sha256sum "$APK"
+
+      - name: Export shell plus native signing tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/delivery"
+          cp "$RUNNER_TEMP/project/app/build/outputs/apk/debug/app-debug.apk" "$RUNNER_TEMP/delivery/r4-shell-debug.apk"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/delivery/apksigner.jar"
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$RUNNER_TEMP/delivery/zipalign"
+          chmod +x "$RUNNER_TEMP/delivery/zipalign"
+          ls -lah "$RUNNER_TEMP/delivery"
+          sha256sum "$RUNNER_TEMP/delivery/"*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clash-gpt-r4-shell-tools
+          path: ${{ runner.temp }}/delivery/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
