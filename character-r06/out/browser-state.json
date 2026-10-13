@@ -9,7 +9,7 @@
     "focus": "whole",
     "playing": false,
     "skeletonVisible": false,
-    "frames": 501,
+    "frames": 500,
     "offlineExport": null,
     "groups": {
       "body": true,
@@ -22,16 +22,16 @@
     },
     "source": {
       "name": "character-r06-candidate.glb",
-      "sha256": "8def211e8c5f87d4e25d2b3b401b8d923008f4fd857f58fd7cba38bd5723cde5",
-      "expectedSha256": "8def211e8c5f87d4e25d2b3b401b8d923008f4fd857f58fd7cba38bd5723cde5",
-      "byteLength": 15747372,
+      "sha256": "d3d8f80fb032c41a52cc7389364cdd01ab123d43a2baa3f94800e737dd332cf3",
+      "expectedSha256": "d3d8f80fb032c41a52cc7389364cdd01ab123d43a2baa3f94800e737dd332cf3",
+      "byteLength": 15406084,
       "local": false,
       "label": "R0.6 / 头发服装修订候选 · 视觉未验收",
       "hashVerified": true
     },
     "stats": {
-      "vertices": 197647,
-      "triangles": 377950,
+      "vertices": 192532,
+      "triangles": 368705,
       "meshes": 41,
       "bones": 163,
       "weightedBones": 125,
@@ -43,16 +43,16 @@
     },
     "camera": {
       "position": [
-        -0.0004277425853298768,
-        0.9775993233730305,
-        3.5566180635066615
+        -0.0004277425853298767,
+        0.9758938861400935,
+        3.5504526783625905
       ],
       "target": [
-        -0.0004277425853298768,
-        0.8894078779376476,
+        -0.0004277425853298767,
+        0.8878566074527233,
         0.029695205427157926
       ],
-      "distance": 3.52802530856734
+      "distance": 3.521857996238544
     },
     "animationTime": 0,
     "animationDuration": 0,

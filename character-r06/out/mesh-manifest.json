@@ -53,28 +53,28 @@
       "name": "Cargo_Pocket_R",
       "meshName": "",
       "materials": [
-        "pants"
+        "R10_Cargo_Pocket_Fabric"
       ]
     },
     {
       "name": "Cargo_Pocket_Seam_R",
       "meshName": "",
       "materials": [
-        "seam"
+        "R10_Pocket_Seams"
       ]
     },
     {
       "name": "Cargo_Pocket_L",
       "meshName": "",
       "materials": [
-        "pants"
+        "R10_Cargo_Pocket_Fabric"
       ]
     },
     {
       "name": "Cargo_Pocket_Seam_L",
       "meshName": "",
       "materials": [
-        "seam"
+        "R10_Pocket_Seams"
       ]
     },
     {
