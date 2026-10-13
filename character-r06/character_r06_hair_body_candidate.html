@@ -355,8 +355,16 @@ function r11BagOnBack(meshes,jacket){
  const torso=jacket.skeleton.bones.find(b=>/spine0?2/i.test(b.name))||jacket.skeleton.bones.find(b=>/spine/i.test(b.name));
  r06Require(torso,'缺少躯干控制骨骼');
  const surface=r06SurfaceIndex(jacket),b=surface.box;
- const back=(x,y)=>{const ray=new THREE.Ray(new THREE.Vector3(x,y,b.min.z-.3),new THREE.Vector3(0,0,1));
-   const hit=surface.intersectRay(ray);r06Require(hit,'肩带投影未命中外套背面 '+x+','+y);return hit.point.clone();};
+ const back=(x,y)=>{const seed=new THREE.Vector3(x,y,b.min.z-.2);
+   const ray=new THREE.Ray(seed,new THREE.Vector3(0,0,1));
+   let hit=surface.intersectRay(ray);
+   if(!hit){
+     const query=new THREE.Vector3(x,y,b.min.z);
+     hit=surface.nearest(query,.105);
+     r06Require(hit,'肩带点离真实外套表面过远 '+x+','+y+' (max .105m)');
+   }
+   return hit.point.clone();
+ };
  const pouchCenter=back(.095,1.24),backZ=pouchCenter.z-.06;
  const dark=new THREE.MeshStandardMaterial({name:'R11_Bag_Nylon',color:0x272a2d,roughness:.92,side:THREE.DoubleSide});
  const webbing=new THREE.MeshStandardMaterial({name:'R11_Bag_Webbing',color:0x1d2022,roughness:1,side:THREE.DoubleSide});
@@ -371,7 +379,7 @@ function r11BagOnBack(meshes,jacket){
  const added=[r06Attach(bag,jacket,dark,'R11_Crossbody_Pouch',torso.name)];
  const zip=new THREE.BoxGeometry(.154,.004,.005);zip.translate(.095,1.29,backZ-.006);
  added.push(r06Attach(zip,jacket,metal,'R11_Crossbody_Zipper',torso.name));
- const targets=[[-.105,1.51],[-.10,1.465],[-.055,1.412],[.01,1.348],[.08,1.283],[.095,1.245]];
+ const targets=[[-.11,1.435],[-.10,1.408],[-.055,1.375],[.01,1.335],[.08,1.283],[.095,1.245]];
  const pts=targets.map(([x,y])=>{const v=back(x,y);v.z-=.018;return v;});
  const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal'),p=[],uv=[],idx=[],N=28;
  for(let i=0;i<=N;i++){
