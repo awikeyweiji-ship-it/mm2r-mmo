@@ -27,6 +27,8 @@ try{
  await shot('full-front','front','whole');
  await shot('full-quarter','quarter','whole');
  await shot('full-profile','profile','whole');
+ await shot('full-back','back','whole');
+ await shot('head-back','back','head');
  await shot('head-front-clay','front','head','clay');
  await shot('full-front-clay','front','whole','clay');
  const downloadPromise=page.waitForEvent('download');
