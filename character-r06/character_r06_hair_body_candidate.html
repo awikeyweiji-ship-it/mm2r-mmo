@@ -171,19 +171,73 @@ function r06AddCard(store,h,points,width,lane,lean=0){const curve=new THREE.Catm
 for(let i=0;i<=steps;i++){const t=i/steps,c=curve.getPoint(t),tangent=curve.getTangent(t).normalize();const n=new THREE.Vector3((c.x-h.cx)/(h.rx*h.rx),(c.y-h.cy)/(h.ry*h.ry),(c.z-h.cz)/(h.rz*h.rz)).normalize();let side=new THREE.Vector3().crossVectors(tangent,n);if(side.lengthSq()<1e-10)side.set(1,0,0);side.normalize();const w=width*(.34+.66*Math.sin(Math.PI*Math.pow(t,.72)))*(.98-.88*Math.pow(t,4));
 for(let j=0;j<cols;j++){const u=j/(cols-1),s=u*2-1,v=c.clone().addScaledVector(side,s*w*.5).addScaledVector(n,(1-s*s)*width*.12+lean*Math.sin(Math.PI*t));store.p.push(v.x,v.y,v.z);store.uv.push((lane+.07+u*.86)/4,1-t);}}
 for(let i=0;i<steps;i++)for(let j=0;j<cols-1;j++){const a=base+i*cols+j,b=a+cols;store.idx.push(a,b,a+1,a+1,b,b+1);}store.cards++;}
-function r06Hair(owner,bodyMeshes){const h=r06Scalp(bodyMeshes),rnd=r06Random(120610),tex=r06HairAtlas();const mat=new THREE.MeshStandardMaterial({name:'R07_Hair_Solid_Clumps',color:0x17191b,roughness:.84,metalness:0,side:THREE.DoubleSide});const added=[];
-const p=[],uv=[],idx=[],rings=20,sides=72;p.push(h.cx,h.cy+h.ry+.001,h.cz);uv.push(.5,0);
-for(let i=1;i<=rings;i++)for(let j=0;j<=sides;j++){const phi=j/sides*Math.PI*2,theta=i/rings*r06HairLimit(phi),v=r06ScalpPoint(h,theta,phi,.006);p.push(v.x,v.y,v.z);uv.push(j/sides,i/rings);}
-for(let j=0;j<sides;j++)idx.push(0,1+j,2+j);for(let i=0;i<rings-1;i++)for(let j=0;j<sides;j++){const a=1+i*(sides+1)+j,b=a+sides+1;idx.push(a,b,a+1,a+1,b,b+1);}
-const cap=new THREE.MeshStandardMaterial({name:'R06_Hair_Undercoverage',color:0x16181a,roughness:.98,metalness:0,side:THREE.DoubleSide});added.push(r06Attach(r06Geometry(p,uv,idx),owner,cap,'R06_Hair_Undercoverage','head'));
-for(const layer of [{name:'Coverage',count:130,lane:0,lift:.007,width:.009},{name:'Mid_Clumps',count:82,lane:1,lift:.014,width:.0075},{name:'Top_Silhouette',count:46,lane:2,lift:.020,width:.006},{name:'Fringe',count:32,lane:1,lift:.012,width:.006},{name:'Flyaways',count:18,lane:3,lift:.019,width:.0025}]){const a={p:[],uv:[],idx:[],cards:0};
-for(let k=0;k<layer.count;k++){let phi,theta,endTheta,endPhi;const fringe=layer.name==='Fringe';if(fringe){phi=(rnd()-.5)*1.48;theta=.85+rnd()*.36;endTheta=1.51+rnd()*.22;endPhi=phi+(phi<.15?-.19:.10)+(.5-rnd())*.13;}else{phi=rnd()*Math.PI*2;theta=.20+rnd()*(r06HairLimit(phi)-.31);const limit=r06HairLimit(phi)+.13;endTheta=Math.min(limit,theta+.16+rnd()*.24);endPhi=phi+(Math.cos(phi)>.1?-.18:.08)*(0.4+rnd());}
-const l=layer.lift*(.75+.5*rnd());const p0=r06ScalpPoint(h,theta,phi,.0045),p1=r06ScalpPoint(h,theta+(endTheta-theta)*.27,phi+(endPhi-phi)*.18,l),p2=r06ScalpPoint(h,theta+(endTheta-theta)*.72,phi+(endPhi-phi)*.74,l*.78),p3=r06ScalpPoint(h,endTheta,endPhi,.004+rnd()*.005);
-if(fringe){p3.y=h.top-.074-rnd()*.040;p3.z+=.008;p2.z+=.006;}else if(Math.cos(phi)<.2)p3.y-=rnd()*.011;
-if(layer.name==='Flyaways'){p2.x+=(rnd()-.5)*.012;p3.x+=(rnd()-.5)*.017;}
-r06AddCard(a,h,[p0,p1,p2,p3],layer.width*(.75+rnd()*.50),layer.lane);}
-const m=r06Attach(r06Geometry(a.p,a.uv,a.idx),owner,mat, 'R06_Hair_'+layer.name,'head');m.userData.cardCount=a.cards;added.push(m);}
-r06State.changes.push({type:'hair',method:'layered textured cards with directional guide curves',cards:308,layers:5,undercoverage:true,scalpFit:h,simulation:false});return added;}
+function r08ScalpShell(owner,h){
+ const geom=owner.geometry,pos=geom.getAttribute('position'),norm=geom.getAttribute('normal'),idx=geom.index;
+ const v=new THREE.Vector3(),n=new THREE.Vector3(),world=new THREE.Vector3(),normalMat=new THREE.Matrix3().getNormalMatrix(owner.matrixWorld);
+ const p=[],uv=[],faces=[],triCount=(idx?idx.count:pos.count)/3;
+ function inScalp(v){
+  if(v.y<h.top-.198||v.y>h.top+.01)return false;
+  const dx=v.x-h.cx,dz=v.z-h.cz,phi=Math.atan2(dx,dz),theta=Math.acos(r06Clamp((v.y-h.cy)/h.ry,-1,1));
+  return theta<=r06HairLimit(phi)+.06&&Math.abs(dx)<=h.rx+.043&&Math.abs(dz)<=h.rz+.045;
+ }
+ for(let i=0;i<triCount;i++){
+  const ids=idx?[idx.getX(3*i),idx.getX(3*i+1),idx.getX(3*i+2)]:[3*i,3*i+1,3*i+2];
+  const verts=ids.map(id=>new THREE.Vector3().fromBufferAttribute(pos,id).applyMatrix4(owner.matrixWorld));
+  const mid=verts[0].clone().add(verts[1]).add(verts[2]).divideScalar(3);
+  if(!inScalp(mid)||verts.filter(inScalp).length<2)continue;
+  const base=p.length/3;
+  for(let k=0;k<3;k++){
+   world.copy(verts[k]);
+   if(norm)n.fromBufferAttribute(norm,ids[k]).applyMatrix3(normalMat).normalize();
+   else n.subVectors(world,new THREE.Vector3(h.cx,h.cy,h.cz)).normalize();
+   world.addScaledVector(n,.0075);
+   p.push(world.x,world.y,world.z);uv.push(k===1?1:0,k===2?1:0);
+  }
+  faces.push(base,base+1,base+2);
+ }
+ r06Require(faces.length>=600,'真实头皮几何覆盖不足，不使用空心发帽充数');
+ const shell=r06Attach(r06Geometry(p,uv,faces),owner,new THREE.MeshStandardMaterial({name:'R08_Scalp_Dark_Cover',color:0x17191b,roughness:1,metalness:0,side:THREE.DoubleSide}),'R08_Hair_ScalpShell','head');
+ shell.userData.sourceTriangles=faces.length/3;return shell;
+}
+function r06Hair(owner,bodyMeshes){
+ const h=r06Scalp(bodyMeshes),rnd=r06Random(20261013);
+ const atlas=r06HairAtlas(),mat=new THREE.MeshStandardMaterial({name:'R08_ShortHair_Layered_Cards',map:atlas,roughness:.88,metalness:0,alphaTest:.14,side:THREE.DoubleSide});
+ const added=[r08ScalpShell(owner,h)];let total=0;
+ const layers=[
+  {name:'Coverage',count:180,lift:.005,width:.0080,theta0:.32},
+  {name:'Mid_Clumps',count:140,lift:.010,width:.0068,theta0:.23},
+  {name:'Top_Silhouette',count:95,lift:.013,width:.0054,theta0:.15},
+  {name:'Fringe',count:78,lift:.009,width:.0056,theta0:.79},
+  {name:'Flyaways',count:6,lift:.011,width:.0019,theta0:.45}
+ ];
+ for(const layer of layers){
+  const a={p:[],uv:[],idx:[],cards:0};
+  for(let k=0;k<layer.count;k++){
+   let phi,theta,delta,endPhi;
+   const fringe=layer.name==='Fringe';
+   if(fringe){
+    phi=(rnd()-.5)*1.27;theta=layer.theta0+rnd()*.31;delta=.30+rnd()*.22;
+    endPhi=phi-.17+(.5-rnd())*.10;
+   }else{
+    phi=rnd()*Math.PI*2;const limit=r06HairLimit(phi);
+    theta=layer.theta0+rnd()*Math.max(.15,limit-layer.theta0-.40);
+    delta=.14+rnd()*.22;endPhi=phi+(Math.cos(phi)>.15?-.10:.045)*(.50+rnd()*.45);
+   }
+   const endTheta=Math.min(r06HairLimit(endPhi)+.06,theta+delta),lift=layer.lift*(.85+.32*rnd());
+   const p0=r06ScalpPoint(h,theta,phi,.014);
+   const p1=r06ScalpPoint(h,theta+delta*.28,phi+(endPhi-phi)*.20,lift+.014);
+   const p2=r06ScalpPoint(h,theta+delta*.70,phi+(endPhi-phi)*.72,lift*.75+.014);
+   const p3=r06ScalpPoint(h,endTheta,endPhi,.013);
+   if(fringe){p2.z+=.014;p3.z+=.018;p3.y=Math.min(p3.y,h.top-.122-rnd()*.028);}
+   if(layer.name==='Flyaways'){p2.x+=(rnd()-.5)*.003;p3.x+=(rnd()-.5)*.004;}
+   r06AddCard(a,h,[p0,p1,p2,p3],layer.width*(.78+rnd()*.45),layer.lane??(fringe?1:layer.name==='Top_Silhouette'?2:0));
+  }
+  const mesh=r06Attach(r06Geometry(a.p,a.uv,a.idx),owner,mat,'R08_Hair_'+layer.name,'head');
+  mesh.userData.cardCount=a.cards;added.push(mesh);total+=a.cards;
+ }
+ r06State.changes.push({type:'hair',method:'actual scalp surface shell and reference-oriented thin textured strands',cards:total,layers:layers.length,shellTriangles:added[0].userData.sourceTriangles,visualAcceptance:'NOT_VERIFIED'});
+ return added;
+}
 function r06SmoothSurface(g,passes=10){const a=g.getAttribute('position'),lookup=new Map(),ids=new Uint32Array(a.count),points=[],adj=[];for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i),key=Math.round(x*1e5)+','+Math.round(y*1e5)+','+Math.round(z*1e5);let id=lookup.get(key);if(id===undefined){id=points.length/3;lookup.set(key,id);points.push(x,y,z);adj.push(new Set());}ids[i]=id;}
 const ix=g.index?.array||Uint32Array.from({length:a.count},(_,i)=>i),edges=new Map();for(let i=0;i<ix.length;i+=3){const t=[ids[ix[i]],ids[ix[i+1]],ids[ix[i+2]]];for(let k=0;k<3;k++){const u=t[k],v=t[(k+1)%3];if(u===v)continue;adj[u].add(v);adj[v].add(u);const key=Math.min(u,v)+','+Math.max(u,v);edges.set(key,(edges.get(key)||0)+1);}}
 const boundary=new Uint8Array(adj.length);for(const [key,count]of edges)if(count===1){const [u,v]=key.split(',').map(Number);boundary[u]=1;boundary[v]=1;}
@@ -202,8 +256,8 @@ function r07BodyShape(bodies){
   for(let i=0;i<p.count;i++){
    const ox=p.getX(i),oy=p.getY(i),oz=p.getZ(i);let x=ox,y=oy,z=oz;
    if(y<1.05&&Math.abs(x)<.205){
-    if(y>=.78){const t=r06Smooth(.78,1.05,y);const s=.91+.09*t;x*=s;z*=.97+.03*t;}
-    else if(y>=.28){const center=Math.sign(x||1)*.09,lower=r06Smooth(.28,.78,y),s=.94-.02*lower;x=center+(x-center)*s;z*=.965;}
+    if(y>=.78){const t=r06Smooth(.78,1.05,y);const s=.97+.03*t;x*=s;z*=.99+.01*t;}
+    else if(y>=.28){const center=Math.sign(x||1)*.09,lower=r06Smooth(.28,.78,y),s=.985-.005*lower;x=center+(x-center)*s;z*=.965;}
    }
    const d=Math.hypot(x-ox,y-oy,z-oz);if(d>1e-8){p.setXYZ(i,x,y,z);verticesChanged++;maxDisplacement=Math.max(maxDisplacement,d);}
   }
@@ -268,10 +322,10 @@ function r06Garments(sceneRoot,bodies,headTop){const meshes=r06Meshes(sceneRoot)
 for(const mesh of main){mesh.updateWorldMatrix(true,false);const e=mesh.matrixWorld.elements;r06Require(Math.abs(e[0]-1)+Math.abs(e[5]-1)+Math.abs(e[10]-1)+Math.abs(e[12])+Math.abs(e[13])+Math.abs(e[14])<1e-4,'服装局部坐标不符合已知R0.5，停止修形');mesh.geometry=mesh.geometry.clone();const g=mesh.geometry,p=g.getAttribute('position'),before=new Float32Array(p.array),smooth=r06SmoothSurface(g,12),isJacket=/Jacket/.test(mesh.name),isPants=/Trousers/.test(mesh.name),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight');let low=Infinity;const sleeve=new Uint8Array(p.count);
 if(isJacket&&mesh.isSkinnedMesh){for(let i=0;i<p.count;i++){let influence=0;for(let k=0;k<4;k++){const bone=mesh.skeleton.bones[si.getComponent(i,k)];if(bone&&/upperarm|lowerarm|forearm/i.test(bone.name))influence+=sw.getComponent(i,k);}if(influence>.65){sleeve[i]=1;low=Math.min(low,p.getY(i));}}jacket=mesh;}
 const lift=Number.isFinite(low)?Math.min(.065,Math.max(0,1.13-low)):0;
-for(let i=0;i<p.count;i++){let x=p.getX(i),y=p.getY(i),z=p.getZ(i);if(isJacket){const shoulder=Math.exp(-(((Math.abs(x)-.205)/.064)**2)-(((y-1.443)/.075)**2));y-=.036*shoulder;x*=1-.105*shoulder;
+for(let i=0;i<p.count;i++){let x=p.getX(i),y=p.getY(i),z=p.getZ(i);if(isJacket){const shoulder=Math.exp(-(((Math.abs(x)-.205)/.064)**2)-(((y-1.443)/.075)**2));y-=.009*shoulder;x*=1-.012*shoulder;
 if(sleeve[i]&&y<1.27&&low<1.24){y+=lift*(1-r06Smooth(low,1.27,y));}
-if(!sleeve[i]&&y<1.24){const ease=(1-r06Smooth(.95,1.24,y))*.050;x*=1+ease;z+=Math.sign(z)*ease*.040;}
-}else if(isPants){const center=Math.sign(x||1)*.09;if(y<1.02){const hipNarrow=1-.08*(1-r06Smooth(.74,1.02,y)),lowerLoose=.07*(1-r06Smooth(.28,.72,y)),s=hipNarrow+lowerLoose;x=center+(x-center)*s;z=.025+(z-.025)*(1-.035*(1-r06Smooth(.72,1.02,y))+.03*(1-r06Smooth(.28,.66,y)));}const fold=Math.exp(-(((y-.54)/.045)**2))+.7*Math.exp(-(((y-.17)/.055)**2));z+=.00065*Math.sin(54*y+11*Math.abs(x))*fold;}
+if(!sleeve[i]&&y<1.24){const ease=(1-r06Smooth(1.04,1.39,y))*.092;x*=1+ease;z+=Math.sign(z)*ease*.040;}
+}else if(isPants){const center=Math.sign(x||1)*.095;if(y<1.06){const upper=1+.095*(1-r06Smooth(.76,1.06,y)),lower=.135*(1-r06Smooth(.20,.72,y));const s=upper+lower;x=center+(x-center)*s;z=.025+(z-.025)*(1+.055*(1-r06Smooth(.70,1.04,y))+.070*(1-r06Smooth(.20,.68,y)));}const fold=Math.exp(-(((y-.54)/.045)**2))+.7*Math.exp(-(((y-.17)/.055)**2));z+=.00065*Math.sin(54*y+11*Math.abs(x))*fold;}
 p.setXYZ(i,x,y,z);}
 p.needsUpdate=true;mesh.updateMatrixWorld(true);const clearance=r06Clearance(mesh,cloud);if(isJacket)for(let i=0;i<p.count;i++)if(sleeve[i])sleeveSamples.push([p.getX(i),p.getY(i),p.getZ(i)]);
 g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();mesh.material=mat.clone();if(mesh.name==='T_Shirt'){mesh.material.color.setHex(0x35393d);mesh.material.roughness=.98;}else if(isPants){mesh.material.color.setHex(0x6b737a);mesh.material.roughness=.95;}else{mesh.material.color.setHex(0x858b91);mesh.material.roughness=.89;}let count=0,max=0;for(let i=0;i<p.count;i++){const d=Math.hypot(p.getX(i)-before[i*3],p.getY(i)-before[i*3+1],p.getZ(i)-before[i*3+2]);if(d>1e-6)count++;max=Math.max(max,d);}r06MeshCheck(mesh);changed.push({name:mesh.name,verticesChanged:count,maxDisplacement:max,smoothing:smooth,clearance,sleeveLift:lift});}
