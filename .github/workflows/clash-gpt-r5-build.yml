@@ -1,0 +1,95 @@
+name: Build R5 Gemini ChatGPT smart-router shell
+
+on:
+  push:
+    branches:
+      - feature/clash-gpt-gemini-r5-20261013
+    paths:
+      - .github/workflows/clash-gpt-r5-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore project with pinned source SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode build-assets/ai-r5-source.tar.gz.b64 > "$RUNNER_TEMP/r5-source.tar.gz"
+          echo "d43b96db57773a4da68af9183492d8f2ec0351f6fed64f916bb3722f36f271b6  $RUNNER_TEMP/r5-source.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/project/app/src/main/assets"
+          tar -xzf "$RUNNER_TEMP/r5-source.tar.gz" -C "$RUNNER_TEMP/project"
+          curl --fail -L --retry 3 --connect-timeout 20 --max-time 180 \
+            https://github.com/MetaCubeX/ClashMetaForAndroid/releases/download/v2.11.30/cmfa-2.11.30-meta-arm64-v8a-release.apk \
+            -o "$RUNNER_TEMP/project/app/src/main/assets/clash-meta.apk"
+          echo "93a719347dc2318b6b6356c588646a7ee82fd7ab0355e7a865fe6954de1234f0  $RUNNER_TEMP/project/app/src/main/assets/clash-meta.apk" | sha256sum -c -
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install official Android 35 SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl --fail -LsS --retry 3 --connect-timeout 20 \
+            https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -o "$RUNNER_TEMP/cmdtools.zip"
+          unzip -q "$RUNNER_TEMP/cmdtools.zip" -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          set +o pipefail
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" \
+            'platforms;android-35' 'build-tools;35.0.0'
+          set -o pipefail
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Run tests and compile R5
+        working-directory: ${{ runner.temp }}/project
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tests/run_core_tests.sh
+          python3 tests/test_contract.py
+          python3 tests/test_ui_contract.py
+          python3 tests/test_dual_install_contract.py
+          python3 tests/test_target_ui_contract.py
+          python3 tests/test_route_restoration_contract.py
+          gradle --no-daemon :app:assembleDebug
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          sha256sum "$APK"
+
+      - name: Collect APK shell and Android signing utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ready"
+          cp "$RUNNER_TEMP/project/app/build/outputs/apk/debug/app-debug.apk" "$RUNNER_TEMP/ready/r5-shell-debug.apk"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/ready/apksigner.jar"
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$RUNNER_TEMP/ready/zipalign"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib64/libc++.so" "$RUNNER_TEMP/ready/libc++.so"
+          chmod +x "$RUNNER_TEMP/ready/zipalign"
+          sha256sum "$RUNNER_TEMP/ready/"*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: R5-Smart-Node-Assistant-Shell
+          path: ${{ runner.temp }}/ready/
+          compression-level: 0
+          retention-days: 10
+          if-no-files-found: error
