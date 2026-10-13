@@ -22,34 +22,6 @@
       ]
     },
     {
-      "name": "Cargo_Pocket_R",
-      "meshName": "",
-      "materials": [
-        "R10_Cargo_Pocket_Fabric"
-      ]
-    },
-    {
-      "name": "Cargo_Pocket_Seam_R",
-      "meshName": "",
-      "materials": [
-        "R10_Pocket_Seams"
-      ]
-    },
-    {
-      "name": "Cargo_Pocket_L",
-      "meshName": "",
-      "materials": [
-        "R10_Cargo_Pocket_Fabric"
-      ]
-    },
-    {
-      "name": "Cargo_Pocket_Seam_L",
-      "meshName": "",
-      "materials": [
-        "R10_Pocket_Seams"
-      ]
-    },
-    {
       "name": "Wrist_Device_Band",
       "meshName": "",
       "materials": [
@@ -215,6 +187,34 @@
       "meshName": "",
       "materials": [
         "R08_ShortHair_Layered_Cards"
+      ]
+    },
+    {
+      "name": "R13_Cargo_Left_Pocket",
+      "meshName": "",
+      "materials": [
+        "R13_Cargo_Pouch_Fabric"
+      ]
+    },
+    {
+      "name": "R13_Cargo_Left_Flap",
+      "meshName": "",
+      "materials": [
+        "R13_Cargo_Pouch_Flap"
+      ]
+    },
+    {
+      "name": "R13_Cargo_Right_Pocket",
+      "meshName": "",
+      "materials": [
+        "R13_Cargo_Pouch_Fabric"
+      ]
+    },
+    {
+      "name": "R13_Cargo_Right_Flap",
+      "meshName": "",
+      "materials": [
+        "R13_Cargo_Pouch_Flap"
       ]
     },
     {
