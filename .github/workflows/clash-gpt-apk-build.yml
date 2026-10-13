@@ -87,8 +87,8 @@ jobs:
           cp /tmp/clash-gpt-build/app/build/outputs/apk/debug/app-debug.apk releases/GPT_Clash_Dual_Installer_R3_20261013.apk
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add releases/GPT_Clash_Startup_Assistant_20261013.apk
-          git commit -m 'build: deliver Clash GPT starter APK [skip ci]'
+          git add releases/GPT_Clash_Dual_Installer_R3_20261013.apk
+          git commit -m 'build: deliver guarded dual-app installer R3 [skip ci]'
           git push origin HEAD:feature/clash-gpt-dual-installer-r3-20261013
 
       - uses: actions/upload-artifact@v4
