@@ -36,20 +36,6 @@
       ]
     },
     {
-      "name": "Rear_Pouch",
-      "meshName": "",
-      "materials": [
-        "bag"
-      ]
-    },
-    {
-      "name": "Pouch_Zip",
-      "meshName": "",
-      "materials": [
-        "metal"
-      ]
-    },
-    {
       "name": "Cargo_Pocket_R",
       "meshName": "",
       "materials": [
@@ -190,13 +176,6 @@
       ]
     },
     {
-      "name": "Crossbody_Webbing_R05",
-      "meshName": "",
-      "materials": [
-        "bag"
-      ]
-    },
-    {
       "name": "Body_Head_Hands_Feet_CC0",
       "meshName": "",
       "materials": [
@@ -250,6 +229,27 @@
       "meshName": "",
       "materials": [
         "R08_ShortHair_Layered_Cards"
+      ]
+    },
+    {
+      "name": "R11_Crossbody_Pouch",
+      "meshName": "",
+      "materials": [
+        "R11_Bag_Nylon"
+      ]
+    },
+    {
+      "name": "R11_Crossbody_Zipper",
+      "meshName": "",
+      "materials": [
+        "R11_Bag_Zipper"
+      ]
+    },
+    {
+      "name": "R11_Crossbody_Strap",
+      "meshName": "",
+      "materials": [
+        "R11_Bag_Webbing"
       ]
     },
     {
