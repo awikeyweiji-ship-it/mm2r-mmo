@@ -348,6 +348,43 @@ function r06Cuff(owner,samples,sign,mat){
  for(let i=0;i<n;i++)for(let j=0;j<4;j++){const a=i*4+j,b=i*4+(j+1)%4,c=a+4,d=b+4;ix.push(a,c,b,b,c,d);}
  return r06Attach(r06Geometry(p,uv,ix),owner,mat,'R06_Jacket_Rolled_Cuff_'+(sign>0?'L':'R'));
 }
+function r11BagOnBack(meshes,jacket){
+ r06Require(jacket?.isSkinnedMesh,'跨肩包需要有效的蒙皮外套');
+ const old=meshes.filter(o=>/^(Rear_Pouch|Pouch_Zip|Crossbody_Webbing_R05)$/.test(o.name));
+ r06Require(old.length===3,'缺少原版斜挎包分件，停止替换');
+ const torso=jacket.skeleton.bones.find(b=>/spine0?2/i.test(b.name))||jacket.skeleton.bones.find(b=>/spine/i.test(b.name));
+ r06Require(torso,'缺少躯干控制骨骼');
+ const surface=r06SurfaceIndex(jacket),b=surface.box;
+ const back=(x,y)=>{const ray=new THREE.Ray(new THREE.Vector3(x,y,b.min.z-.3),new THREE.Vector3(0,0,1));
+   const hit=surface.intersectRay(ray);r06Require(hit,'肩带投影未命中外套背面 '+x+','+y);return hit.point.clone();};
+ const pouchCenter=back(.095,1.24),backZ=pouchCenter.z-.06;
+ const dark=new THREE.MeshStandardMaterial({name:'R11_Bag_Nylon',color:0x272a2d,roughness:.92,side:THREE.DoubleSide});
+ const webbing=new THREE.MeshStandardMaterial({name:'R11_Bag_Webbing',color:0x1d2022,roughness:1,side:THREE.DoubleSide});
+ const metal=new THREE.MeshStandardMaterial({name:'R11_Bag_Zipper',color:0x696f73,roughness:.64,metalness:.25,side:THREE.DoubleSide});
+ const shape=new THREE.Shape(),w=.192,h=.130,rad=.020;
+ shape.moveTo(-w/2+rad,-h/2);shape.lineTo(w/2-rad,-h/2);shape.quadraticCurveTo(w/2,-h/2,w/2,-h/2+rad);
+ shape.lineTo(w/2,h/2-rad);shape.quadraticCurveTo(w/2,h/2,w/2-rad,h/2);
+ shape.lineTo(-w/2+rad,h/2);shape.quadraticCurveTo(-w/2,h/2,-w/2,h/2-rad);
+ shape.lineTo(-w/2,-h/2+rad);shape.quadraticCurveTo(-w/2,-h/2,-w/2+rad,-h/2);
+ const bag=new THREE.ExtrudeGeometry(shape,{depth:.038,bevelEnabled:true,bevelThickness:.004,bevelSize:.004,bevelSegments:2,steps:1,curveSegments:5});
+ bag.translate(.095,1.24,backZ);
+ const added=[r06Attach(bag,jacket,dark,'R11_Crossbody_Pouch',torso.name)];
+ const zip=new THREE.BoxGeometry(.154,.004,.005);zip.translate(.095,1.29,backZ-.006);
+ added.push(r06Attach(zip,jacket,metal,'R11_Crossbody_Zipper',torso.name));
+ const targets=[[-.105,1.51],[-.10,1.465],[-.055,1.412],[.01,1.348],[.08,1.283],[.095,1.245]];
+ const pts=targets.map(([x,y])=>{const v=back(x,y);v.z-=.018;return v;});
+ const curve=new THREE.CatmullRomCurve3(pts,false,'centripetal'),p=[],uv=[],idx=[],N=28;
+ for(let i=0;i<=N;i++){
+  const t=i/N,v=curve.getPoint(t),direction=curve.getTangent(t).normalize(),ortho=new THREE.Vector3(direction.y,-direction.x,0).normalize(),half=.014;
+  for(const sign of [-1,1]){const a=v.clone().addScaledVector(ortho,half*sign);p.push(a.x,a.y,a.z);uv.push(sign<0?0:1,t);}
+  if(i<N){const a=i*2;idx.push(a,a+2,a+1,a+1,a+2,a+3);}
+ }
+ added.push(r06Attach(r06Geometry(p,uv,idx),jacket,webbing,'R11_Crossbody_Strap',torso.name));
+ for(const mesh of old)mesh.removeFromParent();
+ for(const mesh of added)mesh.userData.part_group='accessories';
+ r06State.changes.push({type:'crossbody',replaced:old.map(x=>x.name),newParts:added.map(x=>x.name),surfaceProjection:true,rigBone:torso.name,appearanceAcceptance:'NOT_VERIFIED'});
+ return added;
+}
 function r06Garments(sceneRoot,bodies,headTop){const meshes=r06Meshes(sceneRoot),cloud=r06BodyCloud(bodies),main=meshes.filter(m=>/^(T_Shirt|Open_Hooded_Jacket|Cargo_Trousers)$/.test(m.name));r06Require(main.length>=2,'未找到已知服装部件，不猜测替换其他网格');const changed=[],added=[],mat=r06ClothMaterial();let jacket=null,sleeveSamples=[];
 for(const mesh of main){mesh.updateWorldMatrix(true,false);const e=mesh.matrixWorld.elements;r06Require(Math.abs(e[0]-1)+Math.abs(e[5]-1)+Math.abs(e[10]-1)+Math.abs(e[12])+Math.abs(e[13])+Math.abs(e[14])<1e-4,'服装局部坐标不符合已知R0.5，停止修形');mesh.geometry=mesh.geometry.clone();const g=mesh.geometry,p=g.getAttribute('position'),before=new Float32Array(p.array),smooth=r06SmoothSurface(g,12),isJacket=/Jacket/.test(mesh.name),isPants=/Trousers/.test(mesh.name),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight');let low=Infinity;const sleeve=new Uint8Array(p.count);
 if(isJacket&&mesh.isSkinnedMesh){for(let i=0;i<p.count;i++){let influence=0;for(let k=0;k<4;k++){const bone=mesh.skeleton.bones[si.getComponent(i,k)];if(bone&&/upperarm|lowerarm|forearm/i.test(bone.name))influence+=sw.getComponent(i,k);}if(influence>.65){sleeve[i]=1;low=Math.min(low,p.getY(i));}}jacket=mesh;}
@@ -370,7 +407,7 @@ g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();mesh.m
   m.material=new THREE.MeshStandardMaterial({name:/Seam/.test(m.name)?'R10_Pocket_Seams':'R10_Cargo_Pocket_Fabric',color:/Seam/.test(m.name)?0x74787a:0x4a4f51,roughness:.93,metalness:0,side:THREE.DoubleSide});
   r06MeshCheck(m);
  }
- if(jacket){for(const m of meshes){if(chooseGroup(m)==='clothing'&&(/Chest_Pocket|Chest_Pocket_Flap/i.test(m.name)||(/collar|lapel/i.test(m.name)&&!(/shoe/i.test(m.name))))){m.removeFromParent();}}
+ if(jacket){added.push(...r11BagOnBack(meshes,jacket));for(const m of meshes){if(chooseGroup(m)==='clothing'&&(/Chest_Pocket|Chest_Pocket_Flap/i.test(m.name)||(/collar|lapel/i.test(m.name)&&!(/shoe/i.test(m.name))))){m.removeFromParent();}}
 const front=r06FrontSampler(jacket);added.push(r06ChestPanel(jacket,-.089,headTop-.42,front,mat.clone(),'R06_Jacket_Chest_Pocket_R'),r06ChestPanel(jacket,.089,headTop-.42,front,mat.clone(),'R06_Jacket_Chest_Pocket_L'));added.push(r06Collar(jacket,mat.clone(),headTop));for(const sign of [-1,1]){const cuff=r06Cuff(jacket,sleeveSamples,sign,mat.clone());if(cuff)added.push(cuff);}}
 r06State.changes.push({type:'garments',items:changed,additionalParts:added.map(m=>m.name),bodyAndFacePositionsChanged:false,clothSimulation:false,intersectionValidation:'SAMPLED_ONLY'});return {changed,added};}
 async function r06Show(which){if(r06Busy)return;const isCandidate=which==='candidate',bytes=isCandidate?r06ResultBytes:r06BaseBytes;if(!bytes)return;
