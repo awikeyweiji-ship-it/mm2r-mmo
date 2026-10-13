@@ -1,0 +1,110 @@
+name: Clash + ChatGPT R4 offline installer
+
+on:
+  push:
+    branches:
+      - feature/clash-gpt-r4-bundled-apkm-20261013
+    paths:
+      - .github/workflows/clash-gpt-r4-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore verified original source
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode build-assets/GPT_Starter_R4_source.tar.gz.b64 > "$RUNNER_TEMP/r4-source.tar.gz"
+          echo 'adc5b27f0f61e75b76ca7e29fe63f0c5e1e2e0e213d7063bacbcd836b4825ed5  '${RUNNER_TEMP}'/r4-source.tar.gz' | sha256sum -c - || {
+            sha256sum "$RUNNER_TEMP/r4-source.tar.gz"
+            exit 1
+          }
+          mkdir -p "$RUNNER_TEMP/gpt-assistant/app/src/main/assets"
+          tar -xzf "$RUNNER_TEMP/r4-source.tar.gz" -C "$RUNNER_TEMP/gpt-assistant"
+          curl --fail --location --silent --show-error --retry 3 --connect-timeout 20 --max-time 180 \
+            'https://github.com/MetaCubeX/ClashMetaForAndroid/releases/download/v2.11.30/cmfa-2.11.30-meta-arm64-v8a-release.apk' \
+            -o "$RUNNER_TEMP/gpt-assistant/app/src/main/assets/clash-meta.apk"
+          echo "93a719347dc2318b6b6356c588646a7ee82fd7ab0355e7a865fe6954de1234f0  $RUNNER_TEMP/gpt-assistant/app/src/main/assets/clash-meta.apk" | sha256sum -c -
+          # User-provided original APKM via temporary artifact-hosted URL (expires automatically).
+          curl --fail --location --silent --show-error --retry 3 --connect-timeout 20 --max-time 180 \
+            'https://sdmntprnznorth.oaiusercontent.com/files/00000000-733c-820b-95bb-6841a9f0527c/raw?se=2026-10-13T10%3A46%3A52Z&sp=r&sv=2026-02-06&sr=b&scid=59c63204-3466-5a6a-ada9-90db88b383f6&skoid=b7fc319f-b93c-4fac-ba5f-14fdc3f9209f&sktid=a48cca56-e6da-484e-a814-9c849652bcb&skt=2026-10-13T00%3A21%3A19Z&ske=2026-10-14T00%3A21%3A19Z&sks=b&skv=2026-02-06&sig=idiAKDqL6%2BvtpsoXNCEzNHNj2rNd%2Bzm6xbhhShMI66M%3D' \
+            -o "$RUNNER_TEMP/gpt-assistant/app/src/main/assets/chatgpt-original.apkm"
+          echo "cd7af30278fcca6b37cb0a7ee77aebc2fd562039b05a2ea4263c6498698e3c8f  $RUNNER_TEMP/gpt-assistant/app/src/main/assets/chatgpt-original.apkm" | sha256sum -c -
+          echo "Both user-provided archives verified."
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK 35 without legacy tools package
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl --fail --location --silent --show-error --retry 3 --connect-timeout 20 \
+            'https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip' \
+            -o "$RUNNER_TEMP/cmdtools.zip"
+          unzip -q "$RUNNER_TEMP/cmdtools.zip" -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          set +o pipefail
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" \
+            'platforms;android-35' 'build-tools;35.0.0'
+          set -o pipefail
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Test and verify split APK signer
+        working-directory: ${{ runner.temp }}/gpt-assistant
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tests/run_core_tests.sh
+          python3 tests/test_contract.py
+          python3 tests/test_ui_contract.py
+          python3 tests/test_dual_install_contract.py
+          python3 tests/test_apkm_archive.py
+          mkdir -p "$RUNNER_TEMP/splits"
+          for f in base.apk split_config.arm64_v8a.apk split_config.en.apk split_config.zh.apk split_config.xxhdpi.apk; do
+            unzip -p app/src/main/assets/chatgpt-original.apkm "$f" > "$RUNNER_TEMP/splits/$f"
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/splits/$f" > "$RUNNER_TEMP/signer.log"
+            grep -qi 'b24f4bfbb3cf293f938703b9d87027c1102cc36dc4fa206910e08927db40473c' "$RUNNER_TEMP/signer.log"
+          done
+          echo "Selected ChatGPT APKs have the expected Google Play signing certificate."
+
+      - name: Build APK and verify bundled assets
+        working-directory: ${{ runner.temp }}/gpt-assistant
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:assembleDebug
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          test "$(unzip -p "$APK" assets/clash-meta.apk | sha256sum | cut -d' ' -f1)" = "93a719347dc2318b6b6356c588646a7ee82fd7ab0355e7a865fe6954de1234f0"
+          test "$(unzip -p "$APK" assets/chatgpt-original.apkm | sha256sum | cut -d' ' -f1)" = "cd7af30278fcca6b37cb0a7ee77aebc2fd562039b05a2ea4263c6498698e3c8f"
+          echo "APK_BINARY_SHA256=$(sha256sum "$APK" | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK_BYTES=$(stat -c %s "$APK")" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p "$RUNNER_TEMP/result"
+          cp "$APK" "$RUNNER_TEMP/result/GPT_Clash_ChatGPT_R4_Offline_Arm64.apk"
+          sha256sum "$RUNNER_TEMP/result/GPT_Clash_ChatGPT_R4_Offline_Arm64.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GPT_Clash_ChatGPT_R4_Offline_APK
+          path: ${{ runner.temp }}/result/GPT_Clash_ChatGPT_R4_Offline_Arm64.apk
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
