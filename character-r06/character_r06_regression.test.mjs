@@ -17,7 +17,7 @@ const html=fs.readFileSync(filename,'utf8');
 const match=html.match(/<script id="viewer-app" type="module">([\s\S]*?)<\/script>/);
 assert.ok(match,'Source viewer module was not found');
 const source=match[1];
-const wanted=['r06Require','r06Meshes','r06Geometry','r06Clamp','r06Smooth','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach','r07BodyShape','r06HairLimit'];
+const wanted=['r06Require','r06Meshes','r06Geometry','r06Clamp','r06Smooth','r06MeshCheck','r06Bones','r06SurfaceIndex','r06SurfaceWeights','r06FrontSampler','r06ClayMaterial','r06SkinFingerprint','r06Attach','r07BodyShape','r06HairLimit','r15HairAlpha'];
 const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});
 const declarations=ast.body.filter(n=>n.type==='FunctionDeclaration'&&wanted.includes(n.id.name)).map(n=>source.slice(n.start,n.end));
 const resultExpression=wanted.map(n=>n+':typeof '+n+"==='undefined'?undefined:"+n).join(',');
@@ -79,4 +79,15 @@ test('R0.9 scalp hairline covers front and back without trimming to crown',()=>{
  assert.ok(front>=1.05&&front<=1.15,'scalp covering stops high enough to leave natural forehead visible');
  assert.ok(back>=1.89&&back<=1.96,'back hairline must cover rear scalp');
  assert.ok(side>=1.62&&side<=1.69,'side hairline must clear upper ear');
+});
+
+test('R1.5 hair alpha mask feathers roots, edges and tips',()=>{
+  const calc=(u,t,lane)=>call('r15HairAlpha',u,t,lane);
+  const root=calc(.5,0,0),middle=calc(.5,.45,0),tip=calc(.5,1,0);
+  assert.ok(root>.65&&middle>.4,'hair root and center must retain meaningful coverage');
+  assert.ok(tip<.025,'hair tip must fade to transparent');
+  assert.ok(calc(.03,.35,0)<.07,'hair card left edge must be feathered');
+  assert.ok(calc(.97,.35,1)<.07,'hair card right edge must be feathered');
+  assert.ok(calc(.5,.35,0)>calc(.1,.35,0),'card center must be more opaque than edge');
+  for(let i=0;i<30;i++)for(const lane of [0,1,2,3]){const v=calc(i/29,i/29,lane);assert.ok(Number.isFinite(v)&&v>=0&&v<=1);}
 });
