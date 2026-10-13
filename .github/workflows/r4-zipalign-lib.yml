@@ -1,0 +1,28 @@
+name: R4 internal zipalign runtime
+on:
+  push:
+    branches:
+      - feature/clash-gpt-r4-bundled-apkm-20261013
+    paths:
+      - .github/workflows/r4-zipalign-lib.yml
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Export zipalign C++ runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/r4runtime
+          find /usr/lib /lib -type f \( -name 'libc++.so*' -o -name 'libc++abi.so*' \) | head -30
+          cp -L /usr/lib/x86_64-linux-gnu/libc++.so.1 /tmp/r4runtime/libc++.so
+          ldd /tmp/r4runtime/libc++.so
+          sha256sum /tmp/r4runtime/libc++.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r4-zipalign-runtime
+          path: /tmp/r4runtime/libc++.so
+          retention-days: 1
+          compression-level: 0
