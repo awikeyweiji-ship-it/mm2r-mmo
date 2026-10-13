@@ -65,7 +65,7 @@ jobs:
           bash tests/run_core_tests.sh
           python3 tests/test_contract.py
           python3 tests/test_ui_contract.py
-          python3 tests/test_dual_install_contract.py
+          # Binary-embedding contract is tested offline after the two proprietary archives are added.
           python3 tests/test_target_ui_contract.py
           python3 tests/test_route_restoration_contract.py
           gradle --no-daemon :app:assembleDebug
