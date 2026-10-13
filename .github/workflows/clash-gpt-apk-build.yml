@@ -3,9 +3,10 @@ name: Build standalone Clash GPT assistant APK
 on:
   push:
     branches:
-      - feature/clash-gpt-apk-build-20261013
+      - feature/clash-gpt-dual-installer-r3-20261013
     paths:
       - .github/workflows/clash-gpt-apk-build.yml
+      - build-assets/GPT_Starter_R3_source.tar.gz.b64
   workflow_dispatch:
 
 permissions:
@@ -21,12 +22,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 3 --connect-timeout 20 \
-            'https://a74a4852-e36d-47d3-88f7-01d5c7cf1c1e.sandbox.floot.app/_cdn/static/924956c3-8cef-4a9c-9c84-55c18dd71ad1-Clash_GPT_Android_source_only.zip' \
-            -o /tmp/clash-gpt-sources.zip
-          echo 'e1b4ddb8bc0ea648aa67f9ae08f9dc37085798f988effd6d64fdb91c1be37185  /tmp/clash-gpt-sources.zip' | sha256sum -c -
+          base64 --decode build-assets/GPT_Starter_R3_source.tar.gz.b64 > /tmp/clash-gpt-sources.tar.gz
+          echo '638191c93703230ae0e8dd9121c3ba2d32ee1b79721de6174c4fdeb1be39cdd0  /tmp/clash-gpt-sources.tar.gz' | sha256sum -c -
           mkdir -p /tmp/clash-gpt-build
-          unzip -q /tmp/clash-gpt-sources.zip -d /tmp/clash-gpt-build
+          tar -xzf /tmp/clash-gpt-sources.tar.gz -C /tmp/clash-gpt-build
           mkdir -p /tmp/clash-gpt-build/app/src/main/assets
           curl --fail --location --retry 3 --connect-timeout 20 \
             'https://github.com/MetaCubeX/ClashMetaForAndroid/releases/download/v2.11.30/cmfa-2.11.30-meta-arm64-v8a-release.apk' \
@@ -69,6 +68,8 @@ jobs:
           set -euo pipefail
           bash tests/run_core_tests.sh
           python3 tests/test_contract.py
+          python3 tests/test_ui_contract.py
+          python3 tests/test_dual_install_contract.py
           gradle --no-daemon :app:assembleDebug
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
@@ -83,12 +84,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p releases
-          cp /tmp/clash-gpt-build/app/build/outputs/apk/debug/app-debug.apk releases/GPT_Clash_Startup_Assistant_20261013.apk
+          cp /tmp/clash-gpt-build/app/build/outputs/apk/debug/app-debug.apk releases/GPT_Clash_Dual_Installer_R3_20261013.apk
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add releases/GPT_Clash_Startup_Assistant_20261013.apk
           git commit -m 'build: deliver Clash GPT starter APK [skip ci]'
-          git push origin HEAD:feature/clash-gpt-apk-build-20261013
+          git push origin HEAD:feature/clash-gpt-dual-installer-r3-20261013
 
       - uses: actions/upload-artifact@v4
         if: always()
