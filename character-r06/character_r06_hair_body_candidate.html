@@ -180,7 +180,7 @@ r06Require(top>1.55&&top<1.95,'人物尺度不符合已知 R0.5，停止自动�
 for(const m of bodyMeshes){const p=m.geometry.getAttribute('position');for(let i=0;i<p.count;i++){p3.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);if(p3.y>top-.10&&p3.y<top-.035){minX=Math.min(minX,p3.x);maxX=Math.max(maxX,p3.x);minZ=Math.min(minZ,p3.z);maxZ=Math.max(maxZ,p3.z);}}}
 r06Require(Number.isFinite(minX)&&maxX>minX,'无法取得头部外形');return {cx:(minX+maxX)/2,cy:top-.109,cz:(minZ+maxZ)/2,rx:r06Clamp((maxX-minX)/2,.067,.093),ry:.111,rz:r06Clamp((maxZ-minZ)/2,.072,.108),top};}
 function r06ScalpPoint(h,theta,phi,lift=0){return new THREE.Vector3(h.cx+(h.rx+lift)*Math.sin(theta)*Math.sin(phi),h.cy+(h.ry+lift)*Math.cos(theta),h.cz+(h.rz+lift)*Math.sin(theta)*Math.cos(phi));}
-function r06HairLimit(phi){const front=Math.max(0,Math.cos(phi));return 1.95-.37*front*front;}
+function r06HairLimit(phi){const front=Math.max(0,Math.cos(phi));return 1.90-.49*front*front-.24*Math.sin(phi)*Math.sin(phi);}
 function r06AddCard(store,h,points,width,lane,lean=0){const curve=new THREE.CatmullRomCurve3(points,false,'centripetal'),steps=12,cols=3,base=store.p.length/3;
 for(let i=0;i<=steps;i++){const t=i/steps,c=curve.getPoint(t),tangent=curve.getTangent(t).normalize();const n=new THREE.Vector3((c.x-h.cx)/(h.rx*h.rx),(c.y-h.cy)/(h.ry*h.ry),(c.z-h.cz)/(h.rz*h.rz)).normalize();let side=new THREE.Vector3().crossVectors(tangent,n);if(side.lengthSq()<1e-10)side.set(1,0,0);side.normalize();const w=width*(.34+.66*Math.sin(Math.PI*Math.pow(t,.72)))*(.98-.88*Math.pow(t,4));
 for(let j=0;j<cols;j++){const u=j/(cols-1),s=u*2-1,v=c.clone().addScaledVector(side,s*w*.5).addScaledVector(n,(1-s*s)*width*.12+lean*Math.sin(Math.PI*t));store.p.push(v.x,v.y,v.z);store.uv.push((lane+.07+u*.86)/4,1-t);}}
@@ -234,10 +234,10 @@ function r06Hair(owner,bodyMeshes){
  const atlas=r06HairAtlas(),mat=new THREE.MeshStandardMaterial({name:'R08_ShortHair_Layered_Cards',map:atlas,roughness:.88,metalness:0,alphaTest:.14,side:THREE.DoubleSide});
  const added=[r08ScalpShell(owner,bodyMeshes,h)];let total=0;
  const layers=[
-  {name:'Coverage',count:180,lift:.005,width:.0080,theta0:.32},
-  {name:'Mid_Clumps',count:140,lift:.010,width:.0068,theta0:.23},
-  {name:'Top_Silhouette',count:75,lift:.010,width:.0051,theta0:.15},
-  {name:'Fringe',count:60,lift:.007,width:.0048,theta0:.79},
+  {name:'Coverage',count:155,lift:.004,width:.0066,theta0:.32},
+  {name:'Mid_Clumps',count:110,lift:.007,width:.0058,theta0:.23},
+  {name:'Top_Silhouette',count:60,lift:.006,width:.0046,theta0:.15},
+  {name:'Fringe',count:42,lift:.006,width:.0038,theta0:.79},
   {name:'Flyaways',count:6,lift:.011,width:.0019,theta0:.45}
  ];
  for(const layer of layers){
@@ -258,7 +258,7 @@ function r06Hair(owner,bodyMeshes){
    const p1=r06ScalpPoint(h,theta+delta*.28,phi+(endPhi-phi)*.20,lift+.014);
    const p2=r06ScalpPoint(h,theta+delta*.70,phi+(endPhi-phi)*.72,lift*.75+.014);
    const p3=r06ScalpPoint(h,endTheta,endPhi,.013);
-   if(fringe){p2.z+=.014;p3.z+=.018;p3.y=Math.max(p3.y,h.top-.118-rnd()*.017);}
+   if(fringe){p2.z+=.014;p3.z+=.018;p3.y=Math.max(p3.y,h.top-.088-rnd()*.014);}
    if(layer.name==='Flyaways'){p2.x+=(rnd()-.5)*.003;p3.x+=(rnd()-.5)*.004;}
    r06AddCard(a,h,[p0,p1,p2,p3],layer.width*(.78+rnd()*.45),layer.lane??(fringe?1:layer.name==='Top_Silhouette'?2:0));
   }
