@@ -79,7 +79,10 @@ jobs:
           cp "$RUNNER_TEMP/project/app/build/outputs/apk/debug/app-debug.apk" "$RUNNER_TEMP/delivery/r4-shell-debug.apk"
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/delivery/apksigner.jar"
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$RUNNER_TEMP/delivery/zipalign"
+          # zipalign on Ubuntu uses the bundled LLVM libc++ in build-tools/lib64.
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib64/libc++.so" "$RUNNER_TEMP/delivery/libc++.so"
           chmod +x "$RUNNER_TEMP/delivery/zipalign"
+          ldd "$RUNNER_TEMP/delivery/zipalign" || true
           ls -lah "$RUNNER_TEMP/delivery"
           sha256sum "$RUNNER_TEMP/delivery/"*
 
