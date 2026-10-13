@@ -180,7 +180,7 @@ r06Require(top>1.55&&top<1.95,'人物尺度不符合已知 R0.5，停止自动�
 for(const m of bodyMeshes){const p=m.geometry.getAttribute('position');for(let i=0;i<p.count;i++){p3.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);if(p3.y>top-.10&&p3.y<top-.035){minX=Math.min(minX,p3.x);maxX=Math.max(maxX,p3.x);minZ=Math.min(minZ,p3.z);maxZ=Math.max(maxZ,p3.z);}}}
 r06Require(Number.isFinite(minX)&&maxX>minX,'无法取得头部外形');return {cx:(minX+maxX)/2,cy:top-.109,cz:(minZ+maxZ)/2,rx:r06Clamp((maxX-minX)/2,.067,.093),ry:.111,rz:r06Clamp((maxZ-minZ)/2,.072,.108),top};}
 function r06ScalpPoint(h,theta,phi,lift=0){return new THREE.Vector3(h.cx+(h.rx+lift)*Math.sin(theta)*Math.sin(phi),h.cy+(h.ry+lift)*Math.cos(theta),h.cz+(h.rz+lift)*Math.sin(theta)*Math.cos(phi));}
-function r06HairLimit(phi){const front=Math.max(0,Math.cos(phi));return 1.90-.49*front*front-.24*Math.sin(phi)*Math.sin(phi);}
+function r06HairLimit(phi){const front=Math.max(0,Math.cos(phi));return 1.93-.69*front*front-.25*Math.sin(phi)*Math.sin(phi)+.055*Math.sin(3.3*phi+.45)*front*front;}
 function r06AddCard(store,h,points,width,lane,lean=0){const curve=new THREE.CatmullRomCurve3(points,false,'centripetal'),steps=12,cols=3,base=store.p.length/3;
 for(let i=0;i<=steps;i++){const t=i/steps,c=curve.getPoint(t),tangent=curve.getTangent(t).normalize();const n=new THREE.Vector3((c.x-h.cx)/(h.rx*h.rx),(c.y-h.cy)/(h.ry*h.ry),(c.z-h.cz)/(h.rz*h.rz)).normalize();let side=new THREE.Vector3().crossVectors(tangent,n);if(side.lengthSq()<1e-10)side.set(1,0,0);side.normalize();const w=width*(.34+.66*Math.sin(Math.PI*Math.pow(t,.72)))*(.98-.88*Math.pow(t,4));
 for(let j=0;j<cols;j++){const u=j/(cols-1),s=u*2-1,v=c.clone().addScaledVector(side,s*w*.5).addScaledVector(n,(1-s*s)*width*.12+lean*Math.sin(Math.PI*t));store.p.push(v.x,v.y,v.z);store.uv.push((lane+.07+u*.86)/4,1-t);}}
@@ -234,10 +234,10 @@ function r06Hair(owner,bodyMeshes){
  const atlas=r06HairAtlas(),mat=new THREE.MeshStandardMaterial({name:'R08_ShortHair_Layered_Cards',map:atlas,roughness:.88,metalness:0,alphaTest:.14,side:THREE.DoubleSide});
  const added=[r08ScalpShell(owner,bodyMeshes,h)];let total=0;
  const layers=[
-  {name:'Coverage',count:155,lift:.004,width:.0066,theta0:.32},
-  {name:'Mid_Clumps',count:110,lift:.007,width:.0058,theta0:.23},
-  {name:'Top_Silhouette',count:60,lift:.006,width:.0046,theta0:.15},
-  {name:'Fringe',count:42,lift:.006,width:.0038,theta0:.79},
+  {name:'Coverage',count:145,lift:.004,width:.0048,theta0:.32},
+  {name:'Mid_Clumps',count:108,lift:.007,width:.0044,theta0:.23},
+  {name:'Top_Silhouette',count:73,lift:.009,width:.0038,theta0:.15},
+  {name:'Fringe',count:48,lift:.006,width:.0032,theta0:.79},
   {name:'Flyaways',count:6,lift:.011,width:.0019,theta0:.45}
  ];
  for(const layer of layers){
@@ -258,7 +258,7 @@ function r06Hair(owner,bodyMeshes){
    const p1=r06ScalpPoint(h,theta+delta*.28,phi+(endPhi-phi)*.20,lift+.014);
    const p2=r06ScalpPoint(h,theta+delta*.70,phi+(endPhi-phi)*.72,lift*.75+.014);
    const p3=r06ScalpPoint(h,endTheta,endPhi,.013);
-   if(fringe){p2.z+=.014;p3.z+=.018;p3.y=Math.max(p3.y,h.top-.088-rnd()*.014);}
+   if(fringe){p2.z+=.014;p3.z+=.018;p3.y=Math.max(p3.y,h.top-(k%11===0?.115:.080)-rnd()*.010);}
    if(layer.name==='Flyaways'){p2.x+=(rnd()-.5)*.003;p3.x+=(rnd()-.5)*.004;}
    r06AddCard(a,h,[p0,p1,p2,p3],layer.width*(.78+rnd()*.45),layer.lane??(fringe?1:layer.name==='Top_Silhouette'?2:0));
   }
@@ -393,6 +393,41 @@ function r11BagOnBack(meshes,jacket){
  r06State.changes.push({type:'crossbody',replaced:old.map(x=>x.name),newParts:added.map(x=>x.name),surfaceProjection:true,rigBone:torso.name,appearanceAcceptance:'NOT_VERIFIED'});
  return added;
 }
+
+function r12FoldedHood(jacket,meshes){
+ r06Require(jacket?.isSkinnedMesh,'兜帽需要正确的外套蒙皮来源');
+ const olds=meshes.filter(m=>/^(Hood_Folded_Fabric|Hood_Rolled_Rim)$/.test(m.name));
+ r06Require(olds.length===2,'旧兜帽分件数量不符，拒绝替换');
+ const chest=jacket.skeleton.bones.find(b=>/spine0?2/i.test(b.name))||jacket.skeleton.bones.find(b=>/spine/i.test(b.name));
+ r06Require(chest,'缺少兜帽脊柱控制骨骼');
+ const surface=r06SurfaceIndex(jacket),minZ=surface.box.min.z,p=[],uv=[],idx=[];
+ function back(x,y){
+  const ray=new THREE.Ray(new THREE.Vector3(x,y,minZ-.18),new THREE.Vector3(0,0,1));
+  const hit=surface.intersectRay(ray)||surface.nearest(new THREE.Vector3(x,y,minZ),.145);
+  r06Require(hit,'兜帽裁片离开真实外套背面 '+x.toFixed(3)+','+y.toFixed(3));
+  return hit.point.clone();
+ }
+ const nu=20,nv=12,edge=[];
+ for(let j=0;j<=nv;j++){
+  const t=j/nv;
+  for(let i=0;i<=nu;i++){
+   const u=(i/nu)*2-1;
+   const x=.136*u*(.84+.16*t),y=1.452-.133*t+.010*(1-u*u)*Math.sin(Math.PI*t);
+   const pt=back(x,y);
+   pt.z-=.011+.012*Math.sin(Math.PI*t)*Math.max(0,1-u*u);
+   p.push(pt.x,pt.y,pt.z);uv.push(i/nu,t);
+   if(j===0)edge.push(pt.clone());
+   if(i<nu&&j<nv){const a=j*(nu+1)+i,b=a+nu+1;idx.push(a,b,a+1,a+1,b,b+1);}
+  }
+ }
+ const mat=new THREE.MeshStandardMaterial({name:'R12_Hood_Folded_Charcoal',color:0x36393c,roughness:.96,metalness:0,side:THREE.DoubleSide});
+ const part=r06Attach(r06Geometry(p,uv,idx),jacket,mat,'R12_Hood_DrapedPanel',chest.name);
+ const rim=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge),28,.008,5,false);
+ const roll=r06Attach(rim,jacket,new THREE.MeshStandardMaterial({name:'R12_Hood_Rolled_Edge',color:0x2c3033,roughness:.98,side:THREE.DoubleSide}),'R12_Hood_CollarRim',chest.name);
+ for(const m of olds)m.removeFromParent();
+ r06State.changes.push({type:'hood',method:'back-surface draped panel and rolled sewn neck edge',replaced:olds.map(m=>m.name),added:[part.name,roll.name]});
+ return [part,roll];
+}
 function r06Garments(sceneRoot,bodies,headTop){const meshes=r06Meshes(sceneRoot),cloud=r06BodyCloud(bodies),main=meshes.filter(m=>/^(T_Shirt|Open_Hooded_Jacket|Cargo_Trousers)$/.test(m.name));r06Require(main.length>=2,'未找到已知服装部件，不猜测替换其他网格');const changed=[],added=[],mat=r06ClothMaterial();let jacket=null,sleeveSamples=[];
 for(const mesh of main){mesh.updateWorldMatrix(true,false);const e=mesh.matrixWorld.elements;r06Require(Math.abs(e[0]-1)+Math.abs(e[5]-1)+Math.abs(e[10]-1)+Math.abs(e[12])+Math.abs(e[13])+Math.abs(e[14])<1e-4,'服装局部坐标不符合已知R0.5，停止修形');mesh.geometry=mesh.geometry.clone();const g=mesh.geometry,p=g.getAttribute('position'),before=new Float32Array(p.array),smooth=r06SmoothSurface(g,12),isJacket=/Jacket/.test(mesh.name),isPants=/Trousers/.test(mesh.name),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight');let low=Infinity;const sleeve=new Uint8Array(p.count);
 if(isJacket&&mesh.isSkinnedMesh){for(let i=0;i<p.count;i++){let influence=0;for(let k=0;k<4;k++){const bone=mesh.skeleton.bones[si.getComponent(i,k)];if(bone&&/upperarm|lowerarm|forearm/i.test(bone.name))influence+=sw.getComponent(i,k);}if(influence>.65){sleeve[i]=1;low=Math.min(low,p.getY(i));}}jacket=mesh;}
@@ -415,8 +450,8 @@ g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();mesh.m
   m.material=new THREE.MeshStandardMaterial({name:/Seam/.test(m.name)?'R10_Pocket_Seams':'R10_Cargo_Pocket_Fabric',color:/Seam/.test(m.name)?0x74787a:0x4a4f51,roughness:.93,metalness:0,side:THREE.DoubleSide});
   r06MeshCheck(m);
  }
- if(jacket){added.push(...r11BagOnBack(meshes,jacket));for(const m of meshes){if(chooseGroup(m)==='clothing'&&(/Chest_Pocket|Chest_Pocket_Flap/i.test(m.name)||(/collar|lapel/i.test(m.name)&&!(/shoe/i.test(m.name))))){m.removeFromParent();}}
-const front=r06FrontSampler(jacket);added.push(r06ChestPanel(jacket,-.089,headTop-.42,front,mat.clone(),'R06_Jacket_Chest_Pocket_R'),r06ChestPanel(jacket,.089,headTop-.42,front,mat.clone(),'R06_Jacket_Chest_Pocket_L'));added.push(r06Collar(jacket,mat.clone(),headTop));for(const sign of [-1,1]){const cuff=r06Cuff(jacket,sleeveSamples,sign,mat.clone());if(cuff)added.push(cuff);}}
+ if(jacket){added.push(...r11BagOnBack(meshes,jacket));added.push(...r12FoldedHood(jacket,meshes));for(const m of meshes){if(chooseGroup(m)==='clothing'&&(/Chest_Pocket|Chest_Pocket_Flap/i.test(m.name)||(/collar|lapel/i.test(m.name)&&!(/shoe/i.test(m.name))))){m.removeFromParent();}}
+const front=r06FrontSampler(jacket),pocketMat=mat.clone();pocketMat.color.setHex(0x6e7376);added.push(r06ChestPanel(jacket,-.089,headTop-.42,front,pocketMat.clone(),'R06_Jacket_Chest_Pocket_R'),r06ChestPanel(jacket,.089,headTop-.42,front,pocketMat.clone(),'R06_Jacket_Chest_Pocket_L'));added.push(r06Collar(jacket,mat.clone(),headTop));for(const sign of [-1,1]){const cuff=r06Cuff(jacket,sleeveSamples,sign,mat.clone());if(cuff)added.push(cuff);}}
 r06State.changes.push({type:'garments',items:changed,additionalParts:added.map(m=>m.name),bodyAndFacePositionsChanged:false,clothSimulation:false,intersectionValidation:'SAMPLED_ONLY'});return {changed,added};}
 async function r06Show(which){if(r06Busy)return;const isCandidate=which==='candidate',bytes=isCandidate?r06ResultBytes:r06BaseBytes;if(!bytes)return;
 const previousView=current.view,previousFocus=current.focus;
