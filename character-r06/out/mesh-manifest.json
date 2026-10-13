@@ -190,31 +190,45 @@
       ]
     },
     {
-      "name": "R13_Cargo_Left_Pocket",
+      "name": "R14_Cargo_Left_SoftPouch",
       "meshName": "",
       "materials": [
-        "R13_Cargo_Pouch_Fabric"
+        "R14_Cargo_Fabric"
       ]
     },
     {
-      "name": "R13_Cargo_Left_Flap",
+      "name": "R14_Cargo_Left_Flap",
       "meshName": "",
       "materials": [
-        "R13_Cargo_Pouch_Flap"
+        "R14_Cargo_Flap"
       ]
     },
     {
-      "name": "R13_Cargo_Right_Pocket",
+      "name": "R14_Cargo_Left_Seam",
       "meshName": "",
       "materials": [
-        "R13_Cargo_Pouch_Fabric"
+        "R14_Cargo_Stitch"
       ]
     },
     {
-      "name": "R13_Cargo_Right_Flap",
+      "name": "R14_Cargo_Right_SoftPouch",
       "meshName": "",
       "materials": [
-        "R13_Cargo_Pouch_Flap"
+        "R14_Cargo_Fabric"
+      ]
+    },
+    {
+      "name": "R14_Cargo_Right_Flap",
+      "meshName": "",
+      "materials": [
+        "R14_Cargo_Flap"
+      ]
+    },
+    {
+      "name": "R14_Cargo_Right_Seam",
+      "meshName": "",
+      "materials": [
+        "R14_Cargo_Stitch"
       ]
     },
     {
@@ -329,7 +343,9 @@
     163,
     163,
     163,
+    163,
+    163,
     163
   ],
-  "meshCount": 41
+  "meshCount": 43
 }
