@@ -33,6 +33,11 @@ try{
  await page.click('#download-model');
  const download=await downloadPromise;
  await download.saveAs('out/character-r06-candidate.glb');
+ const glb=fs.readFileSync('out/character-r06-candidate.glb');
+ const jsonLength=glb.readUInt32LE(12);
+ const sceneJSON=JSON.parse(glb.toString('utf8',20,20+jsonLength));
+ const nodeSummary=(sceneJSON.nodes||[]).filter(n=>n.mesh!==undefined).map(n=>({name:n.name||'',meshName:sceneJSON.meshes[n.mesh]?.name||'',materials:(sceneJSON.meshes[n.mesh]?.primitives||[]).map(p=>sceneJSON.materials?.[p.material]?.name||null)}));
+ fs.writeFileSync('out/mesh-manifest.json',JSON.stringify({meshNodes:nodeSummary,bones:(sceneJSON.skins||[]).map(s=>s.joints?.length||0),meshCount:sceneJSON.meshes?.length||0},null,2));
  const state=await page.evaluate(()=>window.characterViewer?.getState?.());
  fs.writeFileSync('out/browser-state.json',JSON.stringify({status,state,errors},null,2));
  if(errors.length) throw new Error('Browser errors: '+errors.join(' | '));
