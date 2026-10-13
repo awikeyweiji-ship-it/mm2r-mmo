@@ -429,34 +429,80 @@ function r12FoldedHood(jacket,meshes){
  return [part,roll];
 }
 function r13CargoPouches(pants,meshes){
- r06Require(pants?.isSkinnedMesh,'侧袋必须绑定实际工装裤');
+ r06Require(pants?.isSkinnedMesh,'侧袋必须绑定真实工装裤');
  const old=meshes.filter(m=>/^(Cargo_Pocket_(R|L)|Cargo_Pocket_Seam_(R|L))$/.test(m.name));
- r06Require(old.length===4,'原工装裤侧袋分件异常，拒绝覆盖');
- const surface=r06SurfaceIndex(pants),added=[],bones=pants.skeleton.bones.filter(b=>/upperleg0?1|thigh/i.test(b.name));
- r06Require(bones.length>=2,'工装裤缺失左右大腿绑定骨骼');
+ r06Require(old.length===4,'旧工装裤侧袋分件不完整，停止替换');
+ const surface=r06SurfaceIndex(pants),bounds=surface.box,added=[];
+ const thighs=pants.skeleton.bones.filter(b=>/upperleg0?1|thigh/i.test(b.name));
+ r06Require(thighs.length>=2,'未找到可绑定的左右大腿骨骼');
  pants.updateWorldMatrix(true,false);
- const sleeveMat=new THREE.MeshStandardMaterial({name:'R13_Cargo_Pouch_Fabric',color:0x505658,roughness:.98,metalness:0,side:THREE.DoubleSide});
- const flapMat=new THREE.MeshStandardMaterial({name:'R13_Cargo_Pouch_Flap',color:0x61676a,roughness:.94,metalness:0,side:THREE.DoubleSide});
+ const fabric=new THREE.MeshStandardMaterial({name:'R14_Cargo_Fabric',color:0x303639,roughness:.96,metalness:0,side:THREE.DoubleSide});
+ const flapMat=new THREE.MeshStandardMaterial({name:'R14_Cargo_Flap',color:0x373c3e,roughness:.94,metalness:0,side:THREE.DoubleSide});
+ const stitchMat=new THREE.MeshStandardMaterial({name:'R14_Cargo_Stitch',color:0x555a5c,roughness:1,metalness:0,side:THREE.DoubleSide});
  for(const sign of [-1,1]){
-  const seed=new THREE.Vector3(sign*.22,.81,.024),hit=surface.nearest(seed,.15);
-  r06Require(hit,'工装裤侧袋无法定位到真实大腿表面');
-  const pt=hit.point.clone(),thigh=bones.slice().sort((a,b)=>{
-   const wa=a.getWorldPosition(new THREE.Vector3()),wb=b.getWorldPosition(new THREE.Vector3());
-   return (wa.x-pt.x)**2-(wb.x-pt.x)**2;
-  })[0];
-  r06Require(thigh,'缺失对应大腿骨骼');
-  const shell=new THREE.BoxGeometry(.035,.142,.118,2,3,3);
-  shell.translate(pt.x+sign*.015,pt.y,pt.z);
+  const seed=new THREE.Vector3(sign*.22,.80,.015),base=surface.nearest(seed,.14);
+  r06Require(base,'工装侧袋定位无法触及裤腿');
+  const cx=base.point.x,cy=base.point.y,cz=base.point.z;
+  const bone=thighs.slice().sort((u,v)=>Math.abs(u.getWorldPosition(new THREE.Vector3()).x-cx)-Math.abs(v.getWorldPosition(new THREE.Vector3()).x-cx))[0];
+  r06Require(bone,'工装侧袋缺少对应大腿骨骼');
+  function pointAt(y,z){
+   const from=new THREE.Vector3(sign>0?bounds.max.x+.20:bounds.min.x-.20,y,z);
+   const ray=new THREE.Ray(from,new THREE.Vector3(-sign,0,0));
+   const hit=surface.intersectRay(ray)||surface.nearest(new THREE.Vector3(cx,y,z),.12);
+   r06Require(hit,'侧袋边界未命中真实裤腿 '+sign+'/'+y.toFixed(3)+'/'+z.toFixed(3));
+   return hit.point.clone();
+  }
+  const height=.138,depth=.096,ny=12,nz=10,p=[],uv=[],idx=[];
+  const toId=(layer,j,i)=>layer*(ny+1)*(nz+1)+j*(nz+1)+i;
+  for(let layer=0;layer<2;layer++)for(let j=0;j<=ny;j++){
+   const v=j/ny,y=cy+(v-.5)*height;
+   for(let i=0;i<=nz;i++){
+    const u=i/nz,z=cz+(u-.5)*depth,basePt=pointAt(y,z);
+    const smooth=Math.pow(Math.sin(Math.PI*v)*Math.sin(Math.PI*u),.65);
+    const offset=layer===0?.0015:.0060+.0090*smooth;
+    basePt.x+=sign*offset;
+    p.push(basePt.x,basePt.y,basePt.z);
+    uv.push(u,v);
+   }
+  }
+  for(let j=0;j<ny;j++)for(let i=0;i<nz;i++){
+   const f=toId(1,j,i),r=toId(0,j,i),fn=toId(1,j+1,i),rn=toId(0,j+1,i);
+   idx.push(f,fn,f+1,f+1,fn,fn+1);
+   idx.push(r,r+1,rn,r+1,rn+1,rn);
+  }
+  const rim=[];
+  for(let i=0;i<=nz;i++)rim.push([0,i]);
+  for(let j=1;j<=ny;j++)rim.push([j,nz]);
+  for(let i=nz-1;i>=0;i--)rim.push([ny,i]);
+  for(let j=ny-1;j>0;j--)rim.push([j,0]);
+  for(let k=0;k<rim.length;k++){
+   const [j,i]=rim[k],[nJ,nI]=rim[(k+1)%rim.length];
+   const a=toId(1,j,i),b=toId(1,nJ,nI),c=toId(0,j,i),d=toId(0,nJ,nI);
+   idx.push(a,b,c,b,d,c);
+  }
   const mark=sign<0?'Left':'Right';
-  const pouch=r06Attach(shell,pants,sleeveMat.clone(),'R13_Cargo_'+mark+'_Pocket',thigh.name);
-  const flap=new THREE.BoxGeometry(.040,.030,.123,2,1,2);
-  flap.translate(pt.x+sign*.017,pt.y+.058,pt.z-.002);
-  const lid=r06Attach(flap,pants,flapMat.clone(),'R13_Cargo_'+mark+'_Flap',thigh.name);
-  pouch.userData.part_group=lid.userData.part_group='clothing';
-  added.push(pouch,lid);
+  const pouch=r06Attach(r06Geometry(p,uv,idx),pants,fabric.clone(),'R14_Cargo_'+mark+'_SoftPouch',bone.name);
+  pouch.userData.part_group='clothing';
+  const fp=[],fuv=[],fi=[],rows=3,cols=10;
+  for(let j=0;j<=rows;j++){
+   const v=j/rows,y=cy+.055+(v-.5)*.026;
+   for(let i=0;i<=cols;i++){
+    const u=i/cols,z=cz+(u-.5)*.099,pt=pointAt(y,z);
+    pt.x+=sign*(.0095+.0015*Math.sin(Math.PI*u));
+    fp.push(pt.x,pt.y,pt.z);fuv.push(u,v);
+    if(j<rows&&i<cols){const q=j*(cols+1)+i;fi.push(q,q+cols+1,q+1,q+1,q+cols+1,q+cols+2);}
+   }
+  }
+  const flap=r06Attach(r06Geometry(fp,fuv,fi),pants,flapMat.clone(),'R14_Cargo_'+mark+'_Flap',bone.name);
+  flap.userData.part_group='clothing';
+  const perimeter=rim.map(([j,i])=>new THREE.Vector3(p[toId(1,j,i)*3],p[toId(1,j,i)*3+1],p[toId(1,j,i)*3+2]));
+  const seamGeo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(perimeter,true,'centripetal'),perimeter.length*2,.0011,4,true);
+  const seam=r06Attach(seamGeo,pants,stitchMat.clone(),'R14_Cargo_'+mark+'_Seam',bone.name);
+  seam.userData.part_group='clothing';
+  added.push(pouch,flap,seam);
  }
  for(const m of old)m.removeFromParent();
- r06State.changes.push({type:'cargo-side-pocket',replaced:old.map(m=>m.name),added:added.map(m=>m.name),construction:'rigid thigh-bound fabric cavity plus sewn flap',modelReview:'NOT_VERIFIED'});
+ r06State.changes.push({type:'cargo-pouches',method:'pants-surface tessellated soft pockets with thickness, flaps and sewn perimeters',removed:old.map(m=>m.name),added:added.map(m=>m.name),visualAcceptance:'NOT_VERIFIED'});
  return added;
 }
 function r06Garments(sceneRoot,bodies,headTop){const meshes=r06Meshes(sceneRoot),cloud=r06BodyCloud(bodies),main=meshes.filter(m=>/^(T_Shirt|Open_Hooded_Jacket|Cargo_Trousers)$/.test(m.name));r06Require(main.length>=2,'未找到已知服装部件，不猜测替换其他网格');const changed=[],added=[],mat=r06ClothMaterial();let jacket=null,sleeveSamples=[];
