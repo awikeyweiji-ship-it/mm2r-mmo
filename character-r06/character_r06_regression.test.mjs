@@ -76,7 +76,7 @@ test('body shape narrows central hip and leg regions without moving protected up
 
 test('R0.9 scalp hairline covers front and back without trimming to crown',()=>{
  const front=call('r06HairLimit',0),back=call('r06HairLimit',Math.PI),side=call('r06HairLimit',Math.PI/2);
- assert.ok(front>=1.37&&front<=1.47,'front hairline must terminate above eyebrows');
- assert.ok(back>=1.86&&back<=1.95,'back hairline must cover rear scalp');
+ assert.ok(front>=1.22&&front<=1.29,'front hairline must terminate on upper forehead');
+ assert.ok(back>=1.89&&back<=1.96,'back hairline must cover rear scalp');
  assert.ok(side>=1.62&&side<=1.69,'side hairline must clear upper ear');
 });
