@@ -25,6 +25,10 @@ jobs:
           echo "88016e8b6fba7c721a01e1977f8b00dea1896c5a53d55e1699e9040a9bd339ab  $RUNNER_TEMP/r7a.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/app-r7/app/src/main/assets"
           tar -xzf "$RUNNER_TEMP/r7a.tar.gz" -C "$RUNNER_TEMP/app-r7"
+          # Patch the recovered R6 build properties to the R7 version (same as final source ZIP).
+          sed -i '/android.useAndroidX=/d' "$RUNNER_TEMP/app-r7/gradle.properties"
+          echo 'android.useAndroidX=true' >> "$RUNNER_TEMP/app-r7/gradle.properties"
+          sed -i "s/versionCode 6/versionCode 7/; s/versionName '6.0.0'/versionName '7.0.0-alpha1'/" "$RUNNER_TEMP/app-r7/app/build.gradle"
           curl -fsSL --retry 3 --connect-timeout 20 --max-time 120 \
             https://github.com/MetaCubeX/ClashMetaForAndroid/releases/download/v2.11.30/cmfa-2.11.30-meta-arm64-v8a-release.apk \
             -o "$RUNNER_TEMP/app-r7/app/src/main/assets/clash-meta.apk"
@@ -62,7 +66,8 @@ jobs:
           python3 tests/test_contract.py
           python3 tests/test_ui_contract.py
           # Static Android vault contracts, then real Android Java compilation.
-          python3 tests/test_r7_vault_contract.py
+          python3 -m pip install -q pytest
+          python3 -m pytest -q tests/test_r7_vault_contract.py
           gradle --no-daemon :app:assembleDebug
           APK=app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
