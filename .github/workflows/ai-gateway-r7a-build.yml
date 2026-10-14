@@ -1,0 +1,91 @@
+name: Build R7-A Android persistent vault
+
+on:
+  push:
+    branches:
+      - feature/ai-gateway-r7a-persistent-20261014
+    paths:
+      - .github/workflows/ai-gateway-r7a-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source and restore actual R6 Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d build-assets/r7a_android_sources.tar.gz.b64 > "$RUNNER_TEMP/r7a.tar.gz"
+          echo "88016e8b6fba7c721a01e1977f8b00dea1896c5a53d55e1699e9040a9bd339ab  $RUNNER_TEMP/r7a.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/app-r7/app/src/main/assets"
+          tar -xzf "$RUNNER_TEMP/r7a.tar.gz" -C "$RUNNER_TEMP/app-r7"
+          curl -fsSL --retry 3 --connect-timeout 20 --max-time 120 \
+            https://github.com/MetaCubeX/ClashMetaForAndroid/releases/download/v2.11.30/cmfa-2.11.30-meta-arm64-v8a-release.apk \
+            -o "$RUNNER_TEMP/app-r7/app/src/main/assets/clash-meta.apk"
+          echo "93a719347dc2318b6b6356c588646a7ee82fd7ab0355e7a865fe6954de1234f0  $RUNNER_TEMP/app-r7/app/src/main/assets/clash-meta.apk" | sha256sum -c -
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install official SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl -fsSL --retry 3 --connect-timeout 20 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
+            -o "$RUNNER_TEMP/commandline.zip"
+          unzip -q "$RUNNER_TEMP/commandline.zip" -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          set +o pipefail
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" \
+            'platforms;android-35' 'build-tools;35.0.0'
+          set -o pipefail
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run R6 regression plus R7 vault contracts and Gradle build
+        working-directory: ${{ runner.temp }}/app-r7
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tests/run_core_tests.sh
+          python3 tests/test_contract.py
+          python3 tests/test_ui_contract.py
+          # Static Android vault contracts, then real Android Java compilation.
+          python3 tests/test_r7_vault_contract.py
+          gradle --no-daemon :app:assembleDebug
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -4 || true
+          sha256sum "$APK"
+
+      - name: Export APK shell and Android signing utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ready"
+          cp "$RUNNER_TEMP/app-r7/app/build/outputs/apk/debug/app-debug.apk" "$RUNNER_TEMP/ready/r7a-shell-debug.apk"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/ready/apksigner.jar"
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$RUNNER_TEMP/ready/zipalign"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib64/libc++.so" "$RUNNER_TEMP/ready/libc++.so"
+          chmod +x "$RUNNER_TEMP/ready/zipalign"
+          sha256sum "$RUNNER_TEMP/ready/"*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: R7A-Android-Persistent-Vault-Shell
+          path: ${{ runner.temp }}/ready/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
