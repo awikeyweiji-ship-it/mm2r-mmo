@@ -22,7 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           base64 --decode build-assets/ai-r6-source.tar.gz.b64 > "$RUNNER_TEMP/r6-source.tar.gz"
-          echo "ba3dfd57077e2c9d6ff392a1f049b07470b2ee20fad2b58c37e122895748aa8a  $RUNNER_TEMP/r6-source.tar.gz" | sha256sum -c -
+          echo "865364aa70354c651c117bd29956485cfa2e7914e2d24643ae8e2090737c1c23  $RUNNER_TEMP/r6-source.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/project/app/src/main/assets"
           tar -xzf "$RUNNER_TEMP/r6-source.tar.gz" -C "$RUNNER_TEMP/project"
           curl --fail -L --retry 3 --connect-timeout 20 --max-time 180 \
