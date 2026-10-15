@@ -3,7 +3,7 @@ name: Build R7-B Android persistent vault
 on:
   push:
     branches:
-      - feature/ai-gateway-r7b-persistent-20261014
+      - feature/ai-gateway-r7b-20261015
     paths:
       - .github/workflows/ai-gateway-r7b-build.yml
   workflow_dispatch:
