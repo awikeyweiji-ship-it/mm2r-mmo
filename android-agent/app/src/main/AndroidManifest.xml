@@ -30,6 +30,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".R7ProjectsActivity" android:exported="false" />
+        <activity android:name=".R8ResearchActivity" android:exported="false" />
         <receiver
             android:name=".InstallResultReceiver"
             android:exported="false" />
