@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R8 长期任务中枢</title>
+<style>
+body{margin:0;background:#07101c;color:#e7f8ff;font-family:Inter,system-ui,sans-serif}
+main{max-width:1100px;margin:auto;padding:28px}
+h1{font-size:32px;letter-spacing:.04em}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.card{background:#101f31;border:1px solid #234154;border-radius:16px;padding:16px}.label{font-size:11px;color:#6bc6cd;letter-spacing:.12em}.value{margin-top:8px;font-size:14px}.wide{margin-top:14px}.muted{color:#86a3b5;font-size:12px}
+input,textarea,button{box-sizing:border-box;width:100%;margin-top:8px;border-radius:10px;border:1px solid #355b72;background:#0b1a2a;color:#e7f8ff;padding:11px}
+button{cursor:pointer;background:#6cdeDA;color:#05202b;font-weight:700}
+pre{white-space:pre-wrap;word-break:break-word;background:#0b1a2a;padding:14px;border-radius:10px;max-height:420px;overflow:auto}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}main{padding:16px}}
+</style>
+</head>
+<body><main>
+<div class="label">R8 / DURABLE RESEARCH CORE</div>
+<h1>长期任务中枢</h1>
+<p class="muted">持久执行 · 上下文窗口轮换 · 证据闸门 · 严格模型</p>
+<div class="wide card"><input id="token" type="password" placeholder="Bearer token"><input id="task" placeholder="任务 ID"><button id="load">加载任务</button></div>
+<section class="grid wide">
+<div class="card"><div class="label">执行</div><div id="execution" class="value">UNKNOWN</div></div>
+<div class="card"><div class="label">上下文</div><div id="context" class="value">UNKNOWN</div></div>
+<div class="card"><div class="label">资料</div><div id="data" class="value">UNKNOWN</div></div>
+<div class="card"><div class="label">规则</div><div id="rule" class="value">UNKNOWN</div></div>
+<div class="card"><div class="label">推理</div><div id="reasoning" class="value">UNKNOWN</div></div>
+</section>
+<div class="wide card"><div class="label">任务摘要</div><pre id="summary">尚未加载</pre></div>
+<div class="wide card"><div class="label">事件链</div><pre id="events">尚未加载</pre></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+async function load(){
+ const id=$("task").value.trim(),token=$("token").value.trim();if(!id)return;
+ const h={"Authorization":"Bearer "+token};const r=await fetch("/v1/tasks/"+id,{headers:h});const data=await r.json();
+ if(!r.ok){$("summary").textContent=JSON.stringify(data,null,2);return}
+ $("execution").textContent=data.status||"UNKNOWN";$("context").textContent=data.context_state||"UNKNOWN";
+ $("data").textContent=data.data_state||"UNKNOWN";$("rule").textContent=data.rule_state||"UNKNOWN";$("reasoning").textContent=data.reasoning_state||"UNKNOWN";
+ $("summary").textContent=JSON.stringify({goal:data.goal,model:data.requested_model,epoch:data.context_epoch,progress:[data.completed_units,data.total_units],checkpoint:data.checkpoint_id,errors:data.error_codes},null,2);
+ const e=await fetch("/v1/tasks/"+id+"/events?after_seq=0",{headers:h});const ed=await e.json();$("events").textContent=JSON.stringify(ed.events||ed,null,2);
+}
+$("load").onclick=load;
+</script>
+</body></html>
