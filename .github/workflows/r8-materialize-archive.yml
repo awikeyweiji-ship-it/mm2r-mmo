@@ -31,13 +31,19 @@ jobs:
             cat "$RUNNER_TEMP/tree.txt"
             echo '```'
           } > docs/r8-source-manifest.md
+          rm -rf android-agent
+          mkdir -p android-agent
+          tar -xzf "$RUNNER_TEMP/r7b.tar.gz" -C android-agent
+          rm -rf android-agent/.git android-agent/.github/workflows/build.yml
+          find android-agent -type f -name "*.keystore" -o -name "*.jks" -o -name "*signing*" -print
+          if find android-agent -type f \( -name "*.keystore" -o -name "*.jks" -o -name "*signing*" \) | grep -q .; then echo "Refusing to materialize signing material"; exit 1; fi
       - name: Commit manifest
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/r8-source-manifest.md
+          git add docs/r8-source-manifest.md android-agent
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "test: inspect R7B Android source archive"
+          git commit -m "build: materialize R7B Android integrated app source"
           git push origin HEAD:feature/android-agent-integrated-r8-20261016
