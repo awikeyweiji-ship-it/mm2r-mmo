@@ -1,0 +1,76 @@
+name: R8 Android integrated Agent build
+
+on:
+  push:
+    branches:
+      - feature/android-agent-integrated-r8-20261016
+    paths:
+      - android-agent/**
+      - agent-service/**
+      - .github/workflows/r8-android-agent-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  service-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install service test dependencies
+        working-directory: agent-service
+        run: python -m pip install -q fastapi==0.116.1 httpx==0.28.1 jsonschema==4.25.1 python-multipart==0.0.20 pytest==8.4.2
+      - name: Run durable Agent regression suite
+        working-directory: agent-service
+        run: python -m pytest -q tests/test_agent_service.py
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl -fsSL --retry 3 --connect-timeout 20 https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o "$RUNNER_TEMP/commandline.zip"
+          unzip -q "$RUNNER_TEMP/commandline.zip" -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          set +o pipefail
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" 'platforms;android-35' 'build-tools;35.0.0'
+          set -o pipefail
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run Android R7 regression and R8 contracts
+        working-directory: android-agent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install -q pytest
+          python3 -m pytest -q tests/test_r7_vault_contract.py tests/test_r7_cross_device_contract.py tests/test_r7_android_safety_regression.py tests/test_r8_android_contract.py
+          bash tests/check_android_syntax.sh
+          gradle --no-daemon :app:assembleDebug
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
+          sha256sum "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: R8-Android-Agent-Shell
+          path: android-agent/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
