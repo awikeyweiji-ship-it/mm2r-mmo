@@ -5,6 +5,7 @@ ROOT=tempfile.mkdtemp(prefix="r8-agent-test-")
 os.environ["AGENT_DATA_DIR"]=ROOT
 os.environ["AGENT_ACCESS_TOKEN"]="test-token"
 os.environ["AGENT_ALLOW_INSECURE_LOCAL"]="false"
+os.environ["AGENT_AUTOSTART_WORKER"]="false"
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 
 from app import store
