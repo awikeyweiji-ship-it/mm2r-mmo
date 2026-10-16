@@ -43,11 +43,14 @@ public final class R8ResearchRepository {
     public String verifiedReport(R8ExecutionEntity e)throws Exception{return e==null?"":blobs.read(e.verifiedReportBlobPath);}
 
     public void applyRemoteSnapshot(R7TaskEntity task,JSONObject json)throws Exception{
-        if(!task.id.equals(task.id))throw new IllegalStateException("task mismatch");
-        R8ExecutionEntity e=ensureExecution(task,json.optString("model_id",task.id));
-        String remoteId=json.optString("id","");
-        if(task.remoteTaskId!=null&&!task.remoteTaskId.isEmpty()&&!task.remoteTaskId.equals(remoteId))
+        String remoteTaskId=json.optString("id","");
+        String remoteProjectId=json.optString("project_id","");
+        if(remoteTaskId.isEmpty())throw new SecurityException("REMOTE_TASK_ID_MISSING");
+        if(remoteProjectId.isEmpty()||!task.projectId.equals(remoteProjectId))throw new SecurityException("REMOTE_PROJECT_ID_MISMATCH");
+        if(task.remoteTaskId!=null&&!task.remoteTaskId.isEmpty()&&!task.remoteTaskId.equals(remoteTaskId))
             throw new SecurityException("REMOTE_TASK_ID_MISMATCH");
+        R8ExecutionEntity e=ensureExecution(task,json.optString("model_id",task.id));
+        String remoteId=remoteTaskId;
         e.executionState=json.optString("status","UNKNOWN");
         e.contextState=json.optString("context_state","UNKNOWN");
         e.dataState=json.optString("data_state","UNKNOWN");
