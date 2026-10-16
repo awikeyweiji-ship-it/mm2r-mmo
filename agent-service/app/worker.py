@@ -66,7 +66,7 @@ def _execute_model(task,unit,epoch,prompt):
     if call["status"]=="COMPLETED":
         cached=_load_completed_call(call)
         if cached is not None:return parse_json(cached),call["actual_model"],{"cached":True}
-    if call["status"]=="IN_FLIGHT":
+    if call["status"]=="IN_FLIGHT" and not call.get("_new"):
         raise ModelError("EXTERNAL_CALL_UNCERTAIN","已有未确认的模型调用；不会自动重复调用。",True)
     try:
         raw,actual,usage=call_model(task["requested_model"],[
@@ -80,7 +80,9 @@ def _execute_model(task,unit,epoch,prompt):
         path=_write_result(task["id"],"model-call-"+str(unit)+"-"+str(epoch),payload)
         store.finish_model_call(call["id"],"COMPLETED",actual_model=actual,response_path=path)
         return payload,actual,usage
-    except ModelError:
+    except ModelError as exc:
+        if not exc.uncertain:
+            store.finish_model_call(call["id"],"ERROR",error_code=exc.code)
         raise
     except Exception as exc:
         store.finish_model_call(call["id"],"ERROR",error_code="MODEL_CALL_EXCEPTION")
