@@ -1,0 +1,12 @@
+model_list:
+  - model_name: YOUR_STRICT_MODEL
+    litellm_params:
+      model: openai/YOUR_STRICT_MODEL
+      api_key: os.environ/UPSTREAM_API_KEY
+      api_base: os.environ/UPSTREAM_API_BASE
+  # A second deployment of the SAME model may reuse the same model_name.
+  # Do not configure a fallback to a different model for STRICT research.
+router_settings:
+  routing_strategy: simple-shuffle
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
