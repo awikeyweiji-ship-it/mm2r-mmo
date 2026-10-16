@@ -174,13 +174,17 @@ public final class R8ResearchActivity extends Activity {
                 }
                 if(selectedTaskId==null&&!tasks.isEmpty())selectedTaskId=tasks.get(0).id;
                 final R7TaskEntity task=findTask(tasks,selectedTaskId);
-                final R8ExecutionEntity ex=task==null?null:repo.execution(task.id);
-                runOnUiThread(()->render(selected,tasks,task,ex));
+                final java.util.HashMap<String,R8ExecutionEntity> executions=new java.util.HashMap<>();
+                final java.util.HashMap<String,String> goals=new java.util.HashMap<>();
+                for(R7TaskEntity t:tasks){executions.put(t.id,repo.execution(t.id));goals.put(t.id,repo.base().taskGoal(t));}
+                final int sourceCount=selected==null?0:repo.base().sources(selected.id).size();
+                runOnUiThread(()->render(selected,sourceCount,tasks,task,executions,goals));
             }catch(Exception e){notice("本机读取失败："+safe(e.getMessage()),true);}
         });
     }
 
-    private void render(R7ProjectEntity p,List<R7TaskEntity> tasks,R7TaskEntity task,R8ExecutionEntity ex){
+    private void render(R7ProjectEntity p,int sourceCount,List<R7TaskEntity> tasks,R7TaskEntity task,
+                        java.util.Map<String,R8ExecutionEntity> executions,java.util.Map<String,String> goals){
         projectList.removeAllViews();
         List<R7ProjectEntity> ps=repo.base().projects();
         if(ps.isEmpty())projectList.addView(text("还没有项目。先进入项目仓创建并导入资料。",12,MUTED,false));
@@ -190,18 +194,18 @@ public final class R8ResearchActivity extends Activity {
             projectList.addView(v);
         }
         projectTitle.setText(p==null?"未选择项目":repo.base().projectTitle(p));
-        projectMeta.setText(p==null?"请先创建项目":("项目 "+p.id.substring(0,8)+" · "+repo.base().sources(p.id).size()+" 份资料 · "+tasks.size()+" 个任务"));
+        projectMeta.setText(p==null?"请先创建项目":("项目 "+p.id.substring(0,8)+" · "+sourceCount+" 份资料 · "+tasks.size()+" 个任务"));
         taskList.removeAllViews();
         if(tasks.isEmpty())taskList.addView(text("暂无任务。创建后默认先保存在手机，不会自动外发。",12,MUTED,false));
         for(R7TaskEntity t:tasks){
-            R8ExecutionEntity e=repo.execution(t.id);
+            R8ExecutionEntity e=executions.get(t.id);
             String label=(t.id.equals(selectedTaskId)?"◉ ":"○ ")+repo.base().taskGoal(t)+"\n"+(e==null?t.status:e.executionState)+
                     (t.remoteTaskId==null?" · 未启动远程 Agent":" · 云端 "+t.remoteTaskId.substring(0,8));
             TextView v=text(label,11,t.id.equals(selectedTaskId)?MINT:0xffBDD8E6,false);v.setPadding(dp(8),dp(8),dp(8),dp(8));
             v.setBackground(shape(0xff0B1A2A,0xff203C52,8));v.setOnClickListener(x->{selectedTaskId=t.id;persistSelection();refresh();});
             taskList.addView(v,space(0,5));
         }
-        taskTitle.setText(task==null?"暂无任务":repo.base().taskGoal(task));
+        taskTitle.setText(task==null?"暂无任务":goals.get(task.id));
         if(ex==null){
             taskMeta.setText("未创建 R8 执行状态");
             setState(executionState,"UNKNOWN");setState(contextState,"UNKNOWN");setState(dataState,"UNKNOWN");
@@ -252,18 +256,19 @@ public final class R8ResearchActivity extends Activity {
                 if(!R7SyncClient.url(this).startsWith("https://"))throw new IllegalStateException("还没有配置 HTTPS Agent 服务");
                 List<R7SourceEntity> sources=repo.base().sources(projectId);
                 if(sources.isEmpty())throw new IllegalStateException("项目没有原始资料");
-                new AlertDialog.Builder(this).setTitle("授权当前项目资料给 Agent？")
-                    .setMessage("将上传 "+sources.size()+" 份原始资料到你配置的 HTTPS 服务。上传后服务才能执行长任务；不会读取官方 AI 登录状态。")
+                final List<R7SourceEntity> authorizedSources=new ArrayList<>(sources);
+                runOnUiThread(()->new AlertDialog.Builder(this).setTitle("授权当前项目资料给 Agent？")
+                    .setMessage("将上传 "+authorizedSources.size()+" 份原始资料到你配置的 HTTPS 服务。上传后服务才能执行长任务；不会读取官方 AI 登录状态。")
                     .setNegativeButton("暂不上传",null).setPositiveButton("确认上传并运行",(d,w)->executor.execute(()->{
                         try{
                             R7ProjectEntity p=repo.base().project(projectId);R7SyncClient sync=new R7SyncClient(this,repo.base());
                             sync.syncProject(p);
-                            for(R7SourceEntity s:sources)if(!s.sharedWithAgent)sync.uploadEvidence(s);
+                            for(R7SourceEntity s:authorizedSources)if(!s.sharedWithAgent)sync.uploadEvidence(s);
                             R8ExecutionEntity e=repo.execution(task.id);String rules=repo.rules(e);
-                            sync.createStrictResearchTask(task,sources,rules,e.ruleVersion);
+                            sync.createStrictResearchTask(task,authorizedSources,rules,e.ruleVersion);
                             notice("远程 Agent 已接管。你现在退出 App，服务端仍会继续执行；回来后状态会从云端核对。",false);refresh();
                         }catch(Exception ex){notice("远程启动失败："+safe(ex.getMessage()),true);}
-                    })).show();
+                    })).show());
             }catch(Exception e){notice("不能启动远程任务："+safe(e.getMessage()),true);}
         });
     }
