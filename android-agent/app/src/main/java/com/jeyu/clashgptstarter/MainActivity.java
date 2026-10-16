@@ -291,7 +291,7 @@ public final class MainActivity extends Activity {
         research.setMinHeight(dp(62));
         research.setGravity(Gravity.CENTER);
         research.setBackground(roundFill(0xff0D2636,dp(14),0xff347E82));
-        research.setOnClickListener(v -> startActivity(new Intent(this,R7ProjectsActivity.class)));
+        research.setOnClickListener(v -> startActivity(new Intent(this,R8ResearchActivity.class)));
         home.addView(research,spaced(dp(16),dp(4)));
         TextView researchNote=label("离线加密保存 · 重启可恢复 · 经同意才上传云端",11,MUTED,false);
         researchNote.setGravity(Gravity.CENTER);
