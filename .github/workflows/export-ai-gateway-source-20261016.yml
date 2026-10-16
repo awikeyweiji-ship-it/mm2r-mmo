@@ -1,0 +1,67 @@
+name: Export requested AI Gateway source snapshot
+on:
+  push:
+    branches: ['delivery/ai-gateway-source-export-20261016']
+    paths: ['.github/workflows/export-ai-gateway-source-20261016.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 96542f8a8ec98fdf92f057005ec603fdae557da4
+          persist-credentials: false
+      - name: Export only the requested project and verify original Git blob identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p export
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess, zipfile
+          commit='96542f8a8ec98fdf92f057005ec603fdae557da4'
+          assert subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()==commit
+          roots=('android-agent/','agent-service/')
+          extra={'docs/r8-source-manifest.md','docs/superpowers/plans/2026-10-16-r8-android-persistent-agent.md','.github/workflows/r8-android-agent-build.yml','.github/workflows/r8-materialize-archive.yml'}
+          tree=subprocess.check_output(['git','ls-tree','-rz','--full-tree',commit])
+          entries=[]
+          with zipfile.ZipFile('export/AI_Gateway_R8_repository_snapshot_96542f8.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for row in tree.split(b'\0'):
+                  if not row: continue
+                  meta,rawpath=row.split(b'\t',1)
+                  mode,kind,sha=meta.decode().split()
+                  path=rawpath.decode('utf-8')
+                  if not (path.startswith(roots) or path in extra): continue
+                  if kind!='blob' or mode not in ('100644','100755'): raise RuntimeError('Unexpected object: '+path)
+                  p=pathlib.Path(path)
+                  if p.is_symlink() or '..' in p.parts: raise RuntimeError('Unsafe path')
+                  if p.suffix.lower() in ('.jks','.keystore','.pem','.key','.ttf','.otf','.woff','.woff2') or p.name=='.env': raise RuntimeError('Excluded sensitive/binary file: '+path)
+                  data=p.read_bytes()
+                  actual=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+                  assert actual==sha, path
+                  info=zipfile.ZipInfo(path, (2026,10,16,0,0,0)); info.compress_type=zipfile.ZIP_DEFLATED
+                  info.external_attr=(0o100755 if mode=='100755' else 0o100644)<<16
+                  z.writestr(info,data)
+                  entries.append({'path':path,'bytes':len(data),'git_blob':sha,'sha256':hashlib.sha256(data).hexdigest()})
+          manifest={'repository':'awikeyweiji-ship-it/mm2r-mmo','source_branch':'feature/android-agent-integrated-r8-20261016','source_commit':commit,'export_only':True,'app_code_changed':False,'status':'R8_WORK_IN_PROGRESS_NOT_RELEASE','files':entries}
+          pathlib.Path('export/REMOTE_SOURCE_MANIFEST.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+          with zipfile.ZipFile('export/AI_Gateway_R8_repository_snapshot_96542f8.zip') as z:
+              assert z.testzip() is None
+              assert len(z.namelist())==len(entries)>80
+              for e in entries: assert hashlib.sha256(z.read(e['path'])).hexdigest()==e['sha256']
+          lines=[]
+          for p in sorted(pathlib.Path('export').glob('*')):
+              if p.is_file(): lines.append(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name)
+          pathlib.Path('export/SHA256SUMS.txt').write_text('\n'.join(lines)+'\n')
+          print('EXPORTED_AND_VERIFIED_FILES',len(entries))
+          print('\n'.join(lines))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Gateway-Source-Export-96542f8
+          path: export/
+          retention-days: 14
+          if-no-files-found: error
