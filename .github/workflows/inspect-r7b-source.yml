@@ -1,0 +1,35 @@
+name: Inspect R7B source archive for R8 integration
+
+on:
+  push:
+    branches:
+      - feature/android-agent-integrated-r8-20261016
+      paths:
+        - .github/workflows/inspect-r7b-source.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode and inspect source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d build-assets/r7b_hardening_sources.base64.txt > "$RUNNER_TEMP/r7b.tar.gz"
+          echo "ARCHIVE_SHA256=$(sha256sum "$RUNNER_TEMP/r7b.tar.gz" | cut -d' ' -f1)"
+          echo "=== TOP LEVEL ==="
+          tar -tzf "$RUNNER_TEMP/r7b.tar.gz" | head -200
+          echo "=== COUNTS ==="
+          tar -tzf "$RUNNER_TEMP/r7b.tar.gz" | wc -l
+          echo "DART:"
+          tar -tzf "$RUNNER_TEMP/r7b.tar.gz" | grep -E '\.(dart|yaml|json)$' | head -300 || true
+          echo "ANDROID:"
+          tar -tzf "$RUNNER_TEMP/r7b.tar.gz" | grep -E '(build.gradle|AndroidManifest|\.kt$|\.java$)' | head -300 || true
+          echo "TESTS:"
+          tar -tzf "$RUNNER_TEMP/r7b.tar.gz" | grep -E '(test|spec|contract)' | head -300 || true
