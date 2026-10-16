@@ -25,13 +25,13 @@ public final class R8ResearchRepository {
         e=new R8ExecutionEntity();e.taskId=task.id;e.modelId=modelId==null?"":modelId;
         e.updatedAt=System.currentTimeMillis();dao.putR8Execution(e);return e;
     }
-    public R8ExecutionEntity createTask(String projectId,String goal,String rules,String modelId)throws Exception{
+    public R7TaskEntity createTask(String projectId,String goal,String rules,String modelId)throws Exception{
         R7TaskEntity t=base.createLocalTask(projectId,goal);
         R8ExecutionEntity e=ensureExecution(t,modelId);
         e.encryptedRules=blobs.write(t.id,"rules",rules==null?"":rules);
         e.ruleVersion=rules==null||rules.trim().isEmpty()?"":("local-"+Integer.toHexString(rules.hashCode()));
         e.modelId=modelId==null?"":modelId;e.modelPolicy="STRICT";e.executionState="CREATED";
-        e.remoteDataConsent=false;e.updatedAt=System.currentTimeMillis();dao.putR8Execution(e);return e;
+        e.remoteDataConsent=false;e.updatedAt=System.currentTimeMillis();dao.putR8Execution(e);return t;
     }
     public R8ExecutionEntity execution(String taskId){return dao.r8Execution(taskId);}
     public List<R8MemoryEntity> trustedMemory(String taskId){return dao.trustedMemories(taskId);}
