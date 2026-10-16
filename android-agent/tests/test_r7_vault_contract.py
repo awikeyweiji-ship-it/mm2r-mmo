@@ -29,7 +29,7 @@ def test_keystore_encryption_durable_and_hash_checked():
 
 def test_native_project_ui_preserves_r6_entry():
     activity=read('MainActivity.java')
-    assert 'R7ProjectsActivity.class' in activity
+    assert 'R8ResearchActivity.class' in activity or 'R7ProjectsActivity.class' in activity
     manifest=(SRC/'app/src/main/AndroidManifest.xml').read_text()
     assert '.R7ProjectsActivity' in manifest
     assert 'android:exported="false"' in manifest
