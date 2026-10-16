@@ -26,4 +26,11 @@ public interface R7VaultDao {
     @Query("SELECT * FROM r7_events WHERE taskId=:taskId ORDER BY sequence") List<R7EventEntity> events(String taskId);
     @Query("SELECT * FROM r7_sync_outbox WHERE acknowledgedAt=0 ORDER BY createdAt") List<R7SyncOutboxEntity> pendingOutbox();
     @Query("SELECT COUNT(*) FROM r7_sources WHERE projectId=:projectId") int sourceCount(String projectId);
+
+    @Insert(onConflict=OnConflictStrategy.REPLACE) void putR8Execution(R8ExecutionEntity e);
+    @Insert(onConflict=OnConflictStrategy.REPLACE) void putR8Memory(R8MemoryEntity e);
+    @Insert(onConflict=OnConflictStrategy.REPLACE) void putR8Evidence(R8EvidenceEntity e);
+    @Query("SELECT * FROM r8_executions WHERE taskId=:taskId LIMIT 1") R8ExecutionEntity r8Execution(String taskId);
+    @Query("SELECT * FROM r8_memories WHERE taskId=:taskId AND trust='VERIFIED' ORDER BY updatedAt DESC") List<R8MemoryEntity> trustedMemories(String taskId);
+    @Query("SELECT * FROM r8_evidence WHERE taskId=:taskId ORDER BY updatedAt DESC") List<R8EvidenceEntity> r8Evidence(String taskId);
 }
