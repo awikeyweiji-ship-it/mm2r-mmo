@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS tasks(
  checkpoint_id TEXT,run_id TEXT,lease_owner TEXT,lease_until REAL,error_codes TEXT NOT NULL DEFAULT '[]',
  draft_path TEXT,verified_report_path TEXT,created_at REAL NOT NULL,updated_at REAL NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_task_project ON tasks(project_id,id);
+CREATE TABLE IF NOT EXISTS task_sources(task_id TEXT NOT NULL,source_id TEXT NOT NULL,PRIMARY KEY(task_id,source_id));
 CREATE TABLE IF NOT EXISTS memories(
  id TEXT PRIMARY KEY,task_id TEXT NOT NULL,kind TEXT NOT NULL,trust TEXT NOT NULL,
  source_ref TEXT NOT NULL,content_hash TEXT NOT NULL,value_json TEXT NOT NULL,version INTEGER NOT NULL,updated_at REAL NOT NULL);
@@ -94,7 +95,8 @@ def sync_project(pid,title,base_revision):
         if int(r["revision"])!=int(base_revision):
             c.rollback(); raise ValueError("REVISION_CONFLICT")
         c.execute("UPDATE projects SET title=?,revision=revision+1,updated_at=? WHERE id=?",(title,t,pid))
-        return project(pid)
+        r=c.execute("SELECT * FROM projects WHERE id=?",(pid,)).fetchone()
+        return dict(r)
 
 def add_source(pid,filename,mime,sha,size,obj,text_path,source_id=None):
     sid=source_id or str(uuid.uuid4()); t=now()
@@ -118,6 +120,9 @@ def source(sid):
 def sources_for_project(pid):
     with db() as c:return [dict(x) for x in c.execute("SELECT * FROM sources WHERE project_id=? ORDER BY created_at",(pid,))]
 
+def sources_for_task(tid):
+    with db() as c:return [dict(x) for x in c.execute("SELECT s.* FROM sources s JOIN task_sources ts ON ts.source_id=s.id WHERE ts.task_id=? ORDER BY s.created_at",(tid,))]
+
 def create_task(pid,goal,source_ids,rules,rule_version,requested_model,policy,idempotency):
     t=now();tid=idempotency or str(uuid.uuid4())
     with db() as c:
@@ -132,6 +137,7 @@ def create_task(pid,goal,source_ids,rules,rule_version,requested_model,policy,id
                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                   (tid,pid,goal,rules or "",rule_version or "",requested_model,json.dumps(policy or {},ensure_ascii=False),
                    "INGESTED","SAFE","PASS","UNKNOWN","NOT_EVALUATED","NOT_EVALUATED",t,t))
+        for sid in source_ids:c.execute("INSERT INTO task_sources(task_id,source_id) VALUES(?,?)",(tid,sid))
         event(c,tid,"TASK_CREATED",{"source_ids":source_ids,"rule_version":rule_version or "","requested_model":requested_model})
         return task(tid)
 
