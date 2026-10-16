@@ -1,0 +1,31 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.jeyu.clashgptstarter'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.jeyu.clashgptstarter'
+        minSdk 26
+        targetSdk 35
+        versionCode 9
+        versionName '7.1.1-beta2'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    // Keep the original signed Clash installer asset intact for in-app user-confirmed installation.
+    androidResources {
+        noCompress += ['apk', 'apkm']
+    }
+}
+
+dependencies {
+    // A real persistent local project store; Java annotation processor, no Kotlin migration.
+    implementation 'androidx.room:room-runtime:2.8.5'
+    annotationProcessor 'androidx.room:room-compiler:2.8.5'
+}

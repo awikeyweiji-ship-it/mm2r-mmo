@@ -1,0 +1,2 @@
+SDK/Gradle automated build output
+Android Studio: JDK 17+, SDK Platform 35
