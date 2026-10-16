@@ -210,11 +210,16 @@ def model_call(tid,unit,epoch,model,request_hash):
     key=f"{tid}:{unit}:{epoch}"
     with db() as c:
         r=c.execute("SELECT * FROM model_calls WHERE idempotency_key=?",(key,)).fetchone()
-        if r:return dict(r)
+        if r:
+            row=dict(r)
+            if row["status"]=="ERROR":
+                c.execute("UPDATE model_calls SET status='IN_FLIGHT',error_code=NULL,started_at=?,completed_at=NULL WHERE id=?",(now(),row["id"]))
+                row=dict(c.execute("SELECT * FROM model_calls WHERE id=?",(row["id"],)).fetchone())
+            return row
         c.execute("""INSERT INTO model_calls(id,task_id,unit,epoch,idempotency_key,requested_model,status,request_hash,started_at)
                      VALUES(?,?,?,?,?,?,?,?,?)""",
                   (str(uuid.uuid4()),tid,unit,epoch,key,model,"IN_FLIGHT",request_hash,now()))
-        return dict(c.execute("SELECT * FROM model_calls WHERE idempotency_key=?",(key,)).fetchone())
+        row=dict(c.execute("SELECT * FROM model_calls WHERE idempotency_key=?",(key,)).fetchone());row["_new"]=True;return row
 
 def finish_model_call(call_id,status,actual_model=None,response_path=None,error_code=None):
     with db() as c:c.execute("UPDATE model_calls SET status=?,actual_model=?,response_path=?,error_code=?,completed_at=? WHERE id=?",
