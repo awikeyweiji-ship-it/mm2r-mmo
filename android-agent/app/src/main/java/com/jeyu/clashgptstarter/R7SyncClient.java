@@ -118,6 +118,56 @@ public final class R7SyncClient {
         }
         return updated;
     }
+
+    /** R8: create a strict durable research run with frozen rules and no model downgrade. */
+    public String createStrictResearchTask(R7TaskEntity t, java.util.List<R7SourceEntity> sources, String rules, String ruleVersion)throws Exception{
+        JSONArray ids=new JSONArray();
+        for(R7SourceEntity s:sources){
+            if(s.remoteSourceId==null||s.remoteSourceId.isEmpty())throw new IOException("存在尚未授权上传的原始资料");
+            repo.files().verify(s.projectId,s.sha256,s.sizeBytes);ids.put(s.remoteSourceId);
+        }
+        JSONObject policy=new JSONObject();
+        policy.put("mode","STRICT");
+        policy.put("model",modelId(ctx));
+        policy.put("allow_model_fallback",false);
+        policy.put("allow_provider_failover_same_model",true);
+        policy.put("remote_data_consent",remoteDataConsent(ctx));
+        JSONObject payload=new JSONObject();
+        payload.put("project_id",t.projectId);
+        payload.put("goal",repo.taskGoal(t));
+        payload.put("source_ids",ids);
+        payload.put("rules",rules==null?"":rules);
+        payload.put("rule_version",ruleVersion==null?"":ruleVersion);
+        payload.put("model_policy",policy);
+        payload.put("idempotency_key",t.id);
+        JSONObject result=json("/v1/tasks",payload);
+        repo.markTaskSent(t,result.getString("id"),result.getString("status"),result.optString("checkpoint_id",null));
+        return result.getString("id");
+    }
+
+    public JSONObject fetchResearchSnapshot(String remoteTaskId)throws Exception{
+        return fetchRemoteTask(remoteTaskId);
+    }
+
+    public JSONArray fetchResearchEvents(String remoteTaskId,int afterSeq)throws Exception{
+        if(remoteTaskId==null||!remoteTaskId.matches("[a-fA-F0-9-]{36}"))throw new IOException("任务 ID 不合法");
+        return getJson("/v1/tasks/"+remoteTaskId+"/events?after_seq="+Math.max(0,afterSeq)).optJSONArray("events");
+    }
+
+    public JSONObject resumeResearchTask(String remoteTaskId,String checkpointId,int lastEventSeq)throws Exception{
+        if(checkpointId==null||checkpointId.trim().isEmpty())throw new IOException("缺少可恢复检查点");
+        JSONObject body=new JSONObject();body.put("checkpoint_id",checkpointId);body.put("last_event_seq",Math.max(0,lastEventSeq));
+        return json("/v1/tasks/"+remoteTaskId+"/resume",body);
+    }
+
+    public JSONObject validateResearchTask(String remoteTaskId)throws Exception{
+        return json("/v1/tasks/"+remoteTaskId+"/validate",new JSONObject());
+    }
+
+    private JSONObject getJson(String path)throws Exception{
+        HttpsURLConnection c=connection(path,"GET");return response(c);
+    }
+
     public String sendTask(R7TaskEntity t,java.util.List<R7SourceEntity> sources)throws Exception{
         JSONArray ids=new JSONArray();for(R7SourceEntity s:sources){if(s.remoteSourceId!=null&&!s.remoteSourceId.isEmpty())ids.put(s.remoteSourceId);}
         JSONObject policy=new JSONObject();policy.put("mode","STRICT");
